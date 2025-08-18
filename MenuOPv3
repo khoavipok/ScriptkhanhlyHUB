@@ -1,0 +1,185 @@
+--// Module Menu.lua
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local function makeCorner(obj, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 10)
+    corner.Parent = obj
+    return corner
+end
+
+local function makeShadow(obj)
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.ZIndex = obj.ZIndex - 1
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shadow.Size = UDim2.new(1, 40, 1, 40)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageTransparency = 0.5
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.Parent = obj
+    return shadow
+end
+
+local Menu = {}
+Menu.__index = Menu
+
+function Menu.new(title)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+
+    -- ẢNH GIF GIẢ
+    local Gif = Instance.new("ImageLabel")
+    Gif.Size = UDim2.new(1, 0, 1, 0)
+    Gif.BackgroundTransparency = 1
+    Gif.ZIndex = 0
+    Gif.Parent = ScreenGui
+
+    local frames = {
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/1.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/2.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/3.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/4.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/5.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/6.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/7.jpg",
+        "https://raw.githubusercontent.com/khoavipok/T-o-nh/refs/heads/main/8.jpg"
+    }
+
+    -- Chạy giả gif
+    task.spawn(function()
+        local i = 1
+        while Gif.Parent do
+            Gif.Image = frames[i]
+            i = i + 1
+            if i > #frames then i = 1 end
+            task.wait(0.15) -- tốc độ đổi frame
+        end
+    end)
+
+    -- Khung chính
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 220, 0, 300)
+    MainFrame.Position = UDim2.new(0.5, -110, 0.5, -150)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.ZIndex = 2
+    MainFrame.Parent = ScreenGui
+    makeCorner(MainFrame, 12)
+    makeShadow(MainFrame)
+
+    -- Thanh tiêu đề
+    local TopBar = Instance.new("Frame")
+    TopBar.Size = UDim2.new(1, 0, 0, 30)
+    TopBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    TopBar.BorderSizePixel = 0
+    TopBar.ZIndex = 3
+    TopBar.Parent = MainFrame
+    makeCorner(TopBar, 12)
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -60, 1, 0)
+    Title.Position = UDim2.new(0, 10, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = title or "My Menu"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 14
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 4
+    Title.Parent = TopBar
+
+    -- Nút X
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 30, 1, 0)
+    CloseButton.Position = UDim2.new(1, -30, 0, 0)
+    CloseButton.BackgroundTransparency = 0.3
+    CloseButton.BackgroundColor3 = Color3.fromRGB(50, 30, 30)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(200, 50, 50)
+    CloseButton.TextSize = 18
+    CloseButton.Font = Enum.Font.SourceSansBold
+    CloseButton.ZIndex = 4
+    CloseButton.Parent = TopBar
+    makeCorner(CloseButton, 8)
+
+    -- Nút –
+    local MinButton = Instance.new("TextButton")
+    MinButton.Size = UDim2.new(0, 30, 1, 0)
+    MinButton.Position = UDim2.new(1, -60, 0, 0)
+    MinButton.BackgroundTransparency = 0.3
+    MinButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    MinButton.Text = "-"
+    MinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MinButton.TextSize = 18
+    MinButton.Font = Enum.Font.SourceSansBold
+    MinButton.ZIndex = 4
+    MinButton.Parent = TopBar
+    makeCorner(MinButton, 8)
+
+    -- Khung nội dung
+    local ContentFrame = Instance.new("ScrollingFrame")
+    ContentFrame.Size = UDim2.new(1, 0, 1, -30)
+    ContentFrame.Position = UDim2.new(0, 0, 0, 30)
+    ContentFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    ContentFrame.BorderSizePixel = 0
+    ContentFrame.ScrollBarThickness = 6
+    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ContentFrame.ZIndex = 2
+    ContentFrame.Parent = MainFrame
+    makeCorner(ContentFrame, 12)
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = ContentFrame
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    end)
+
+    -- Sự kiện nút
+    CloseButton.MouseButton1Click:Connect(function()
+        MainFrame.Visible = false
+        Gif.Visible = false -- tắt gif khi đóng menu
+    end)
+
+    local minimized = false
+    MinButton.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            local tween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 220, 0, 30)
+            })
+            tween:Play()
+            tween.Completed:Connect(function()
+                ContentFrame.Visible = false
+            end)
+        else
+            local tween = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 220, 0, 300)
+            })
+            tween:Play()
+            tween.Completed:Connect(function()
+                ContentFrame.Visible = true
+            end)
+        end
+    end)
+
+    return setmetatable({
+        ScreenGui = ScreenGui,
+        MainFrame = MainFrame,
+        ContentFrame = ContentFrame,
+        Title = Title,
+        Gif = Gif,
+    }, Menu)
+end
+
+return Menu
