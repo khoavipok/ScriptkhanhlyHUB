@@ -1,0 +1,103 @@
+-- UILib.lua
+-- Thư viện Menu + Button + Toggle gộp chung
+
+local UILib = {}
+
+-- 🟩 Tạo menu
+function UILib:CreateMenu(config)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+    local Holder = Instance.new("Frame")
+    Holder.Size = config.Size or UDim2.new(0, 250, 0, 350)
+    Holder.Position = UDim2.new(0.5, -125, 0.5, -175)
+    Holder.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Holder.Active = true
+    Holder.Draggable = true
+    Holder.Parent = ScreenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = Holder
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 35)
+    Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    Title.Text = config.Title or "Menu"
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 20
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Parent = Holder
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.FillDirection = Enum.FillDirection.Vertical
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.Parent = Holder
+
+    return Holder
+end
+
+-- 🟧 Button
+function UILib:AddButton(holder, text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0.9, 0, 0, 35)
+    Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    Btn.Text = text
+    Btn.Font = Enum.Font.SourceSansBold
+    Btn.TextSize = 18
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Parent = holder
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = Btn
+
+    Btn.MouseButton1Click:Connect(function()
+        if callback then callback() end
+    end)
+end
+
+-- 🟥 Toggle
+function UILib:AddToggle(holder, text, default, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0.9, 0, 0, 35)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = holder
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.6, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.Font = Enum.Font.SourceSansBold
+    Label.TextSize = 18
+    Label.TextColor3 = Color3.fromRGB(255,255,255)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0.3, 0, 0.8, 0)
+    ToggleBtn.Position = UDim2.new(0.65, 0, 0.1, 0)
+    ToggleBtn.BackgroundColor3 = default and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+    ToggleBtn.Text = default and "ON" or "OFF"
+    ToggleBtn.Font = Enum.Font.SourceSansBold
+    ToggleBtn.TextSize = 16
+    ToggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    ToggleBtn.Parent = Frame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = ToggleBtn
+
+    local state = default
+    ToggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        ToggleBtn.Text = state and "ON" or "OFF"
+        ToggleBtn.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+        if callback then callback(state) end
+    end)
+end
+
+return UILib
