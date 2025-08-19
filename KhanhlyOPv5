@@ -1,0 +1,118 @@
+local TweenService = game:GetService("TweenService")
+
+local function makeCorner(obj, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 10)
+    corner.Parent = obj
+    return corner
+end
+
+local Menu = {}
+Menu.__index = Menu
+
+function Menu.new(title)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Parent = game.CoreGui
+
+    -- Ảnh nền menu
+    local MainFrame = Instance.new("ImageLabel")
+    MainFrame.Size = UDim2.new(0, 300, 0, 350)
+    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
+    MainFrame.BackgroundTransparency = 1
+    MainFrame.Image = "rbxassetid://78025520795916" -- ảnh bạn gửi
+    MainFrame.ScaleType = Enum.ScaleType.Stretch
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    MainFrame.ZIndex = 2
+    MainFrame.Parent = ScreenGui
+    makeCorner(MainFrame, 14)
+
+    -- Thanh tiêu đề
+    local TopBar = Instance.new("Frame")
+    TopBar.Size = UDim2.new(1, 0, 0, 30)
+    TopBar.BackgroundTransparency = 0.3
+    TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    TopBar.BorderSizePixel = 0
+    TopBar.ZIndex = 3
+    TopBar.Parent = MainFrame
+    makeCorner(TopBar, 12)
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -10, 1, 0)
+    Title.Position = UDim2.new(0, 10, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = title or "My Menu"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 16
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 4
+    Title.Parent = TopBar
+
+    -- Khung nội dung
+    local ContentFrame = Instance.new("ScrollingFrame")
+    ContentFrame.Size = UDim2.new(1, -20, 1, -50)
+    ContentFrame.Position = UDim2.new(0, 10, 0, 40)
+    ContentFrame.BackgroundTransparency = 1 -- trong suốt để nhìn ảnh nền
+    ContentFrame.BorderSizePixel = 0
+    ContentFrame.ScrollBarThickness = 4
+    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ContentFrame.ZIndex = 3
+    ContentFrame.Parent = MainFrame
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = ContentFrame
+    UIListLayout.Padding = UDim.new(0, 6)
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ContentFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+    end)
+
+    -- Tạo hàm thêm Button
+    function Menu:AddButton(text, callback)
+        local Button = Instance.new("TextButton")
+        Button.Size = UDim2.new(1, -10, 0, 30)
+        Button.BackgroundTransparency = 0.8 -- mờ
+        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Button.Text = text
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextSize = 14
+        Button.Font = Enum.Font.SourceSansBold
+        Button.Parent = ContentFrame
+        makeCorner(Button, 8)
+
+        Button.MouseButton1Click:Connect(function()
+            if callback then callback() end
+        end)
+    end
+
+    -- Tạo hàm thêm Toggle
+    function Menu:AddToggle(text, callback)
+        local Toggle = Instance.new("TextButton")
+        Toggle.Size = UDim2.new(1, -10, 0, 30)
+        Toggle.BackgroundTransparency = 0.8 -- mờ
+        Toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Toggle.Text = text .. ": OFF"
+        Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Toggle.TextSize = 14
+        Toggle.Font = Enum.Font.SourceSansBold
+        Toggle.Parent = ContentFrame
+        makeCorner(Toggle, 8)
+
+        local state = false
+        Toggle.MouseButton1Click:Connect(function()
+            state = not state
+            Toggle.Text = text .. ": " .. (state and "ON" or "OFF")
+            if callback then callback(state) end
+        end)
+    end
+
+    return setmetatable({
+        ScreenGui = ScreenGui,
+        MainFrame = MainFrame,
+        ContentFrame = ContentFrame,
+        Title = Title,
+    }, Menu)
+end
+
+return Menu
