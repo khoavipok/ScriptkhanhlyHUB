@@ -1,0 +1,199 @@
+-- UILib.lua (fixed)
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local function addCorner(obj, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 6)
+    c.Parent = obj
+    return c
+end
+
+local UILib = {}
+
+function UILib:CreateMenu(config)
+    local titleText = (config and config.Title) or "Menu"
+    local size = (config and config.Size) or UDim2.new(0, 250, 0, 350)
+    local bgImage = (config and config.Image) or nil
+
+    local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "UILib_ScreenGui"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.Parent = pg
+
+    -- Window
+    local window = Instance.new("Frame")
+    window.Name = "Window"
+    window.Size = size
+    window.Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2)
+    window.BackgroundColor3 = Color3.fromRGB(33,33,33)
+    window.Active = true
+    window.Draggable = true
+    window.Parent = gui
+    addCorner(window, 6)
+
+    -- Optional background image
+    if bgImage and bgImage ~= "" then
+        local bg = Instance.new("ImageLabel")
+        bg.Name = "Background"
+        bg.Size = UDim2.new(1,0,1,0)
+        bg.BackgroundTransparency = 1
+        bg.ScaleType = Enum.ScaleType.Crop
+        bg.Image = bgImage
+        bg.ZIndex = 0
+        bg.Parent = window
+        addCorner(bg, 6)
+    end
+
+    -- TopBar
+    local top = Instance.new("Frame")
+    top.Name = "TopBar"
+    top.Size = UDim2.new(1,0,0,32)
+    top.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    top.BorderSizePixel = 0
+    top.Parent = window
+    addCorner(top, 6)
+
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Size = UDim2.new(1,-70,1,0)
+    title.Position = UDim2.new(0,10,0,0)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Text = titleText
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 18
+    title.TextColor3 = Color3.new(1,1,1)
+    title.Parent = top
+
+    -- Minimize
+    local minBtn = Instance.new("TextButton")
+    minBtn.Size = UDim2.new(0,28,0,24)
+    minBtn.Position = UDim2.new(1,-64,0.5,-12)
+    minBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    minBtn.Text = "–"
+    minBtn.Font = Enum.Font.SourceSansBold
+    minBtn.TextSize = 18
+    minBtn.TextColor3 = Color3.new(1,1,1)
+    minBtn.Parent = top
+    addCorner(minBtn, 6)
+
+    -- Close (hide)
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0,28,0,24)
+    closeBtn.Position = UDim2.new(1,-32,0.5,-12)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+    closeBtn.Text = "X"
+    closeBtn.Font = Enum.Font.SourceSansBold
+    closeBtn.TextSize = 16
+    closeBtn.TextColor3 = Color3.new(1,1,1)
+    closeBtn.Parent = top
+    addCorner(closeBtn, 6)
+
+    -- Content (where you add items)
+    local content = Instance.new("ScrollingFrame")
+    content.Name = "Content"
+    content.BackgroundTransparency = 1
+    content.BorderSizePixel = 0
+    content.Position = UDim2.new(0,8,0,32+8)
+    content.Size = UDim2.new(1,-16,1,-(32+16))
+    content.ScrollBarThickness = 6
+    content.ZIndex = 2
+    content.Parent = window
+
+    local list = Instance.new("UIListLayout")
+    list.Padding = UDim.new(0,6)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.Parent = content
+
+    list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        content.CanvasSize = UDim2.new(0,0,0,list.AbsoluteContentSize.Y + 8)
+    end)
+
+    -- interactions
+    local minimized = false
+    local fullSize = window.Size
+    local minSize = UDim2.new(fullSize.X.Scale, fullSize.X.Offset, 0, 32)
+
+    minBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            content.Visible = false
+            TweenService:Create(window, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Size = minSize}):Play()
+        else
+            TweenService:Create(window, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Size = fullSize}):Play()
+            task.delay(0.25, function() content.Visible = true end)
+        end
+    end)
+
+    closeBtn.MouseButton1Click:Connect(function()
+        window.Visible = false
+    end)
+
+    -- Trả về vùng Content để AddButton/AddToggle dùng
+    return content
+end
+
+-- Button
+function UILib:AddButton(parent, text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -4, 0, 35)
+    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    btn.Text = text
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.ZIndex = 3
+    btn.Parent = parent
+    addCorner(btn, 6)
+
+    btn.MouseButton1Click:Connect(function()
+        if callback then callback() end
+    end)
+    return btn
+end
+
+-- Toggle
+function UILib:AddToggle(parent, text, default, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,-4,0,35)
+    row.BackgroundTransparency = 1
+    row.ZIndex = 3
+    row.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(0.6,0,1,0)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = text
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 16
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Parent = row
+
+    local t = Instance.new("TextButton")
+    t.Size = UDim2.new(0.3,0,0.8,0)
+    t.Position = UDim2.new(0.68,0,0.1,0)
+    t.Text = default and "BẬT" or "TẮT"
+    t.Font = Enum.Font.SourceSansBold
+    t.TextSize = 16
+    t.TextColor3 = Color3.new(1,1,1)
+    t.BackgroundColor3 = default and Color3.fromRGB(0,170,0) or Color3.fromRGB(200,0,0)
+    t.Parent = row
+    addCorner(t, 6)
+
+    local state = default and true or false
+    t.MouseButton1Click:Connect(function()
+        state = not state
+        t.Text = state and "BẬT" or "TẮT"
+        t.BackgroundColor3 = state and Color3.fromRGB(0,170,0) or Color3.fromRGB(200,0,0)
+        if callback then callback(state) end
+    end)
+    return row
+end
+
+return UILib
