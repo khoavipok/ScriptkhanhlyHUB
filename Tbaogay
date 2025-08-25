@@ -1,0 +1,221 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "🌊Script khanhly🌊",
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "😎khanhly Hub",
+   LoadingSubtitle = "hack cc",
+   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "script.khanhly"
+   }
+    })
+
+   Rayfield:Notify({
+   Title = "Cảm ơn đã dùng script Khanhly",
+   Content = "cảm ơn number",
+   Duration = 5,
+   Image = 13047715178,
+   Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("đã xác minh")
+      end
+   },
+},
+})
+
+local MainTab = Window:CreateTab("👑Trang chủ", nil) -- Title, Image
+    local MainSection = MainTab:CreateSection("Main")
+
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local root = char:WaitForChild("HumanoidRootPart")
+
+-- ===== CONFIG =====
+local SUCK_HEIGHT = 8      -- cao h�t NPC tr�n u
+local TP_TIME = 1          -- thi gian tween mi ca
+local NPC_DELAY = 0.2      -- delay khi NPC spawn
+local MAP_CHECK_DELAY = 1  -- delay kim tra map load xong
+------------------------
+
+local sucking = false
+local suckConnection
+
+-- Lấy vị trí gom trên đầu player
+local function getCenterCFrame()
+    return root.CFrame * CFrame.new(0, 8, 0)
+end
+
+-- Hút 1 NPC (cả xác ảo và NPC thật)
+local function suckNPC(npc)
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    local hum = npc:FindFirstChild("Humanoid")
+    if hrp then
+        pcall(function()
+            hrp:SetNetworkOwner(player)
+        end)
+        if hum then
+            hum.PlatformStand = true
+            hum:ChangeState(Enum.HumanoidStateType.Physics)
+        end
+        hrp.CanCollide = false
+        npc:PivotTo(getCenterCFrame())
+    end
+end
+
+-- Hút toàn bộ Entities
+local function suckAll()
+    for _, npc in pairs(workspace.Entities:GetChildren()) do
+        suckNPC(npc)
+    end
+end
+
+-- Khi có NPC mới spawn thì tự hút luôn
+workspace.Entities.ChildAdded:Connect(function(npc)
+    task.wait(0.2)
+    if sucking then suckNPC(npc) end
+end)
+
+-- Toggle hút NPC
+local SuckToggle = MainTab:CreateToggle({
+   Name = "Suck All NPC (Above Head)",
+   CurrentValue = false,
+   Flag = "SuckToggle",
+   Callback = function(Value)
+       sucking = Value
+       if sucking then
+           suckConnection = RunService.RenderStepped:Connect(suckAll)
+       else
+           if suckConnection then
+               suckConnection:Disconnect()
+               suckConnection = nil
+           end
+       end
+   end,
+})
+
+-- ================= AUTO TP DOORS (Tween, Map Mi) =================
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+local root = player.Character:WaitForChild("HumanoidRootPart")
+
+local tpRunning = false
+local MAP_CHECK_DELAY = 1
+local TP_TIME = 1.5
+local LAST_DOOR_WAIT = 21 -- dừng 28 giây ở cửa cuối
+
+-- lấy part chính xác của cửa
+local function getDoorPart(door)
+    if door:IsA("BasePart") then
+        return door
+    elseif door:IsA("Model") then
+        if door.PrimaryPart then
+            return door.PrimaryPart
+        else
+            for _, c in ipairs(door:GetChildren()) do
+                if c:IsA("BasePart") then
+                    door.PrimaryPart = c
+                    return c
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- tween nhân vật tới vị trí cửa
+local function tweenToCFrame(targetCFrame, duration)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local goal = {CFrame = targetCFrame}
+    local tween = TweenService:Create(root, tweenInfo, goal)
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+-- chờ map load đầy đủ
+local function waitForMap()
+    while tpRunning do
+        if workspace:FindFirstChild("School") and workspace.School:FindFirstChild("Doors") then
+            return true
+        end
+        task.wait(MAP_CHECK_DELAY)
+    end
+    return false
+end
+
+-- di chuyển lần lượt từng cửa
+local function tpAllDoorsTween()
+    while tpRunning do
+        if waitForMap() then
+            local doors = workspace.School.Doors:GetChildren()
+            table.sort(doors, function(a, b) return a.Name < b.Name end)
+
+            for i, door in ipairs(doors) do
+                if not tpRunning then break end
+                local part = getDoorPart(door)
+                if part then
+                    pcall(function()
+                        tweenToCFrame(part.CFrame + Vector3.new(0, 3, 0), TP_TIME)
+                    end)
+
+                    -- nếu là cửa cuối -> dừng 28 giây
+                    if i == #doors then
+                        task.wait(LAST_DOOR_WAIT)
+                    else
+                        task.wait(0.3) -- delay cho quái spawn
+                    end
+                end
+            end
+        end
+        task.wait(1) -- chờ map tiếp theo load
+    end
+end
+
+-- Toggle bật tắt
+local TpToggle = MainTab:CreateToggle({
+    Name = "Auto TP Doors (Tween, Full Auto)",
+    CurrentValue = false,
+    Flag = "TPDoorsTweenFull",
+    Callback = function(Value)
+        tpRunning = Value
+        if tpRunning then
+            task.spawn(tpAllDoorsTween)
+        end
+    end,
+})
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local autoAttack = false
+
+local Toggle = MainTab:CreateToggle({
+   Name = "⚔️ Auto Attack",
+   CurrentValue = false,
+   Flag = "AutoAttackToggle",
+   Callback = function(Value)
+      autoAttack = Value
+      if Value then
+         task.spawn(function()
+            while autoAttack do
+               -- Click chuột trái
+               VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+               task.wait(0.05)
+               VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+
+               -- Delay giữa mỗi lần click (chỉnh theo ý bạn)
+               task.wait(0.2)
+            end
+         end)
+      end
+   end,
+})
