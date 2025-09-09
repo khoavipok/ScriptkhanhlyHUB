@@ -1,0 +1,272 @@
+-- ==========================
+-- 📌 GHÉP SCRIPT ANIMATION + KHUNG VIỀN
+-- ==========================
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local humanoid = char:WaitForChild("Humanoid")
+
+-- ==========================
+-- ANIMATION (Dark Katana)
+-- ==========================
+local animTrack, floatConn
+local blackGui, halo
+local swords = {}
+local isFloating = false
+
+local function flashScreen()
+    if not blackGui then
+        blackGui = Instance.new("ScreenGui")
+        blackGui.IgnoreGuiInset = true
+        blackGui.Parent = player:WaitForChild("PlayerGui")
+
+        local frame = Instance.new("Frame")
+        frame.Name = "BlackFrame"
+        frame.Size = UDim2.fromScale(1,1)
+        frame.BackgroundColor3 = Color3.new(0,0,0)
+        frame.BackgroundTransparency = 1
+        frame.Parent = blackGui
+    end
+
+    local frame = blackGui:FindFirstChild("BlackFrame")
+    if frame then
+        frame.BackgroundTransparency = 0
+        TweenService:Create(frame, TweenInfo.new(2, Enum.EasingStyle.Sine), {BackgroundTransparency = 1}):Play()
+    end
+end
+
+local function createHalo()
+    halo = Instance.new("Part")
+    halo.Shape = Enum.PartType.Cylinder
+    halo.Size = Vector3.new(0.3,3,3)
+    halo.Color = Color3.fromRGB(20,20,20)
+    halo.Material = Enum.Material.Neon
+    halo.Anchored = true
+    halo.CanCollide = false
+    halo.Orientation = Vector3.new(90,0,0)
+    halo.Parent = char
+end
+
+local function createSwords()
+    for i = 1, 4 do
+        local sword = Instance.new("Part")
+        sword.Size = Vector3.new(0.2,4,0.4)
+        sword.Color = Color3.new(0,0,0)
+        sword.Material = Enum.Material.Metal
+        sword.Anchored = true
+        sword.CanCollide = false
+        sword.Parent = char
+
+        local smoke = Instance.new("ParticleEmitter")
+        smoke.Texture = "rbxassetid://258128463"
+        smoke.Rate = 10
+        smoke.Lifetime = NumberRange.new(1,2)
+        smoke.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0.5),NumberSequenceKeypoint.new(1,2)})
+        smoke.Color = ColorSequence.new(Color3.new(0,0,0))
+        smoke.Parent = sword
+
+        table.insert(swords, sword)
+    end
+end
+
+local function startFloating()
+    if isFloating then return end
+    isFloating = true
+    local t = 0
+    floatConn = RunService.RenderStepped:Connect(function(dt)
+        t += dt * 2
+        local offset = math.sin(t) * 0.5
+        hrp.CFrame = hrp.CFrame + Vector3.new(0, offset*dt, 0)
+
+        for i, sword in ipairs(swords) do
+            local radius = 2
+            local angle = t + (math.pi/2)*(i-1)
+            local pos = hrp.Position + Vector3.new(math.cos(angle)*radius, 1, math.sin(angle)*radius)
+            sword.CFrame = CFrame.new(pos, hrp.Position)
+        end
+
+        if halo then
+            halo.Position = hrp.Position + Vector3.new(0,3+math.sin(t)*0.5,0)
+        end
+    end)
+end
+
+local function stopFloating()
+    isFloating = false
+    if floatConn then floatConn:Disconnect() floatConn = nil end
+end
+
+local function setEffects(enable)
+    if enable then
+        flashScreen()
+        local anim = ReplicatedStorage.Modules.Animations.NPC_Leaning
+        animTrack = humanoid:LoadAnimation(anim)
+        animTrack:Play()
+        createHalo()
+        createSwords()
+        startFloating()
+    else
+        flashScreen()
+        if animTrack then animTrack:Stop() animTrack = nil end
+        if halo then halo:Destroy() halo = nil end
+        for _, sword in ipairs(swords) do sword:Destroy() end
+        swords = {}
+        stopFloating()
+    end
+end
+
+-- ==========================
+-- KHUNG VIỀN + LỜI THOẠI
+-- ==========================
+if workspace:FindFirstChild("SystemPanel") then
+    workspace.SystemPanel:Destroy()
+end
+
+local panel = Instance.new("Part")
+panel.Name = "SystemPanel"
+panel.Size = Vector3.new(6, 4, 0.2)
+panel.Anchored = true
+panel.CanCollide = false
+panel.CanTouch = false
+panel.CanQuery = false
+panel.Transparency = 1
+panel.Parent = workspace
+
+local surfaceGui = Instance.new("SurfaceGui")
+surfaceGui.Face = Enum.NormalId.Front
+surfaceGui.AlwaysOnTop = true
+surfaceGui.LightInfluence = 0
+surfaceGui.Parent = panel
+
+local background = Instance.new("Frame")
+background.Size = UDim2.new(1, 0, 1, 0)
+background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+background.BackgroundTransparency = 0.4
+background.BorderSizePixel = 0
+background.Parent = surfaceGui
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, -20, 1, -20)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundTransparency = 1
+label.Text = ""
+label.Font = Enum.Font.SourceSansBold
+label.TextSize = 55
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextStrokeTransparency = 0.3
+label.TextWrapped = true
+label.Parent = background
+
+local corners = {}
+local function createCorner(parent, posX, posY, anchorX, anchorY, rot)
+    local corner = Instance.new("Frame")
+    corner.Size = UDim2.new(0, 40, 0, 40)
+    corner.Position = UDim2.new(posX, 0, posY, 0)
+    corner.AnchorPoint = Vector2.new(anchorX, anchorY)
+    corner.BackgroundTransparency = 1
+    corner.Parent = parent
+
+    local lineH = Instance.new("Frame")
+    lineH.Size = UDim2.new(1, 0, 0, 3)
+    lineH.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    lineH.BorderSizePixel = 0
+    lineH.Parent = corner
+
+    local lineV = Instance.new("Frame")
+    lineV.Size = UDim2.new(0, 3, 1, 0)
+    lineV.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    lineV.BorderSizePixel = 0
+    lineV.Parent = corner
+
+    corner.Rotation = rot
+    table.insert(corners, {lineH, lineV})
+end
+
+createCorner(background, 0, 0, 0, 0, 0)
+createCorner(background, 1, 0, 1, 0, 90)
+createCorner(background, 1, 1, 1, 1, 180)
+createCorner(background, 0, 1, 0, 1, 270)
+
+local dialogues = {
+    {text = "Thông tin : khanhly \\ script tbao", waitTime = 10},
+    {text = "Oh man are you hanging up the game", waitTime = 60},
+    {text = "How is your life?", waitTime = 5},
+    {text = "Are you AFK?", waitTime = 5},
+    {text = "I am playing liên quân now", waitTime = 20},
+    {text = "Bored now have to make scripts for users haizz", waitTime = 5},
+    {text = "you look so handsome", waitTime = 10},
+    {text = "Do you like khanhly script?", waitTime = 10},
+    {text = "do you know Tbao script?", waitTime = 10},
+    {text = "Tbao's script is very gay 🤣", waitTime = 10},
+    {text = "what country are you in?", waitTime = 10},
+    {text = "but i live in vietnam🇻🇳😘", waitTime = 5},
+    {text = "I think you really like this game?", waitTime = 10},
+    {text = "If you are free, please support Khanhly's script😘", waitTime = 5},
+    {text = "thank bye", waitTime = 5},
+}
+
+local typingSpeed = 0.05
+task.spawn(function()
+    while true do
+        for _, dialogue in ipairs(dialogues) do
+            label.Text = ""
+            local fullText = dialogue.text
+            for i = 1, #fullText do
+                label.Text = string.sub(fullText, 1, i)
+                task.wait(typingSpeed)
+            end
+            task.wait(dialogue.waitTime)
+        end
+    end
+end)
+
+local head
+local offset = Vector3.new(0, 1, 0)
+local distance = 5
+local currentPos = Vector3.new()
+
+local function updateCharacter(char)
+    head = char:WaitForChild("Head")
+    currentPos = head.Position + head.CFrame.LookVector * distance + offset
+end
+
+if player.Character then updateCharacter(player.Character) end
+player.CharacterAdded:Connect(updateCharacter)
+
+local t = 0
+RunService.RenderStepped:Connect(function(dt)
+    if head then
+        local targetPos = head.Position + head.CFrame.LookVector * distance + offset
+        currentPos = currentPos:Lerp(targetPos, 0.05)
+        panel.CFrame = CFrame.new(currentPos, head.Position + Vector3.new(0,1,0))
+    end
+
+    t = t + dt
+    local brightness = 0.5 + math.sin(t * 3) * 0.5
+    local color = Color3.new(brightness, brightness, brightness)
+
+    label.TextColor3 = color
+    for _, corner in ipairs(corners) do
+        for _, line in ipairs(corner) do
+            line.BackgroundColor3 = color
+        end
+    end
+end)
+
+-- ==========================
+-- TOGGLE UI (chung cho 2 hiệu ứng)
+-- ==========================
+local Toggle = MainTab:CreateToggle({
+   Name = "Dark Katana Mode",
+   CurrentValue = false,
+   Flag = "DarkKatanaMode",
+   Callback = function(Value)
+       setEffects(Value)
+   end,
+})
