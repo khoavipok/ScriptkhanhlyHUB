@@ -1,0 +1,1316 @@
+--// Rayfield UI Loader
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "🎣 Fishing Khanhly",
+   LoadingTitle = "🌊KhanhlyHub🌊",
+   LoadingSubtitle = "by Khanhly",
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "KhanhlyHub"
+   },
+   Discord = {
+      Enabled = false,
+   },
+   KeySystem = false,
+})
+
+local DiscordTab = Window:CreateTab("Discord Link", nil) -- Title, Image
+    local MainSection = DiscordTab:CreateSection("Discord Link plss copy thank!")
+
+local Button = DiscordTab:CreateButton({
+    Name = "Copy Discord Link",
+    Callback = function()
+        local link = "https://discord.gg/raAPZrETkZ"
+
+        if setclipboard then
+            setclipboard(link)
+            
+            -- Hiển thị thông báo
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "✅ Copy thành công!",
+                Text = "Đã copy link Discord vào clipboard.",
+                Duration = 5
+            })
+        else
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "⚠ Không thể copy",
+                Text = "Môi trường không hỗ trợ setclipboard.",
+                Duration = 5
+            })
+        end
+    end,
+})
+
+
+local MainTab = Window:CreateTab("farm🐟", nil) -- Title, Image
+    local MainSection = MainTab:CreateSection("farm")
+
+
+--// Services & Remotes
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Net = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):FindFirstChild("sleitnick_net@0.2.0")
+Net = Net and Net:FindFirstChild("net")
+
+local function getRemote(name)
+    local r = Net and Net:FindFirstChild(name)
+    if not r then warn("⚠️ Missing remote:", name) end
+    return r
+end
+
+local equipTool     = getRemote("RE/EquipToolFromHotbar")
+local chargeRod     = getRemote("RF/ChargeFishingRod")
+local startMinigame = getRemote("RF/RequestFishingMinigameStarted")
+local finishFishing = getRemote("RE/FishingCompleted")
+
+--// State
+local autoFarmA = false
+local autoFarmB = false
+local farmingAt = "None"
+local farmAPos = Vector3.new(1013.1, 1, 5079.8) -- cố định Farm A
+
+local sharkAddedConn, sharkRemovedConn
+
+--// Helpers
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+local function teleportAndFreeze(pos)
+    local hrp = getHRP()
+    hrp.CFrame = CFrame.new(pos)
+    if hrp:FindFirstChild("BV_Freeze") then
+        hrp.BV_Freeze:Destroy()
+    end
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "BV_Freeze"
+    bv.Velocity = Vector3.new(0,0,0)
+    bv.MaxForce = Vector3.new(9e9,9e9,9e9)
+    bv.Parent = hrp
+end
+
+local function getSharkHuntObject()
+    local props = workspace:FindFirstChild("Props")
+    return props and props:FindFirstChild("Shark Hunt") or nil
+end
+
+local function getSharkHuntPos()
+    local obj = getSharkHuntObject()
+    if not obj then return nil end
+    if obj:IsA("Model") then
+        return obj:GetPivot().Position
+    elseif obj:IsA("BasePart") then
+        return obj.Position
+    else
+        local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart", true)
+        return pp and pp.Position or nil
+    end
+end
+
+local function startWatchingSharkHunt()
+    if sharkAddedConn then sharkAddedConn:Disconnect() sharkAddedConn=nil end
+    if sharkRemovedConn then sharkRemovedConn:Disconnect() sharkRemovedConn=nil end
+    local props = workspace:FindFirstChild("Props")
+    if not props then return end
+
+    sharkAddedConn = props.ChildAdded:Connect(function(child)
+        if child.Name == "Shark Hunt" and autoFarmB then
+            local pos = getSharkHuntPos()
+            if pos then
+                farmingAt="B"
+                teleportAndFreeze(pos)
+            end
+        end
+    end)
+
+    sharkRemovedConn = props.ChildRemoved:Connect(function(child)
+        if child.Name=="Shark Hunt" and autoFarmB then
+            if autoFarmA and farmAPos then
+                farmingAt="A"
+                teleportAndFreeze(farmAPos)
+            else
+                farmingAt="None"
+            end
+        end
+    end)
+end
+
+local function stopWatchingSharkHunt()
+    if sharkAddedConn then sharkAddedConn:Disconnect() sharkAddedConn=nil end
+    if sharkRemovedConn then sharkRemovedConn:Disconnect() sharkRemovedConn=nil end
+end
+
+--// Fishing Routine
+local function doFishing()
+    if not (equipTool and chargeRod and startMinigame and finishFishing) then return end
+    equipTool:FireServer(1)
+    task.wait(0.5)
+    chargeRod:InvokeServer(tick()*1000)
+    task.wait(2)
+    startMinigame:InvokeServer(math.random(-2,2), math.random())
+    task.wait(5)
+    finishFishing:FireServer()
+end
+
+--// UI Toggles
+MainTab:CreateToggle({
+    Name = "Auto Farm",
+    CurrentValue = false,
+    Flag = "FarmA",
+    Callback = function(Value)
+        autoFarmA=Value
+        if Value and farmingAt~="B" then
+            farmingAt="A"
+            teleportAndFreeze(farmAPos)
+        elseif not Value and farmingAt=="A" then
+            farmingAt=autoFarmB and "B" or "None"
+        end
+    end,
+})
+
+MainTab:CreateToggle({
+    Name = "Auto Event (Shark Hunt)",
+    CurrentValue = false,
+    Flag = "FarmB",
+    Callback = function(Value)
+        autoFarmB=Value
+        if Value then
+            startWatchingSharkHunt()
+            local pos=getSharkHuntPos()
+            if pos then
+                farmingAt="B"
+                teleportAndFreeze(pos)
+            end
+        else
+            stopWatchingSharkHunt()
+            if farmingAt=="B" then
+                if autoFarmA and farmAPos then
+                    farmingAt="A"
+                    teleportAndFreeze(farmAPos)
+                else
+                    farmingAt="None"
+                end
+            end
+        end
+    end,
+})
+
+--// Respawn
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if farmingAt=="A" and autoFarmA then
+        teleportAndFreeze(farmAPos)
+    elseif farmingAt=="B" and autoFarmB then
+        local pos=getSharkHuntPos()
+        if pos then teleportAndFreeze(pos) end
+    end
+end)
+
+--// Loop
+task.spawn(function()
+    while task.wait(1) do
+        if farmingAt=="A" and autoFarmA then
+            doFishing()
+        elseif farmingAt=="B" and autoFarmB then
+            if getSharkHuntPos() then
+                doFishing()
+            end
+        end
+    end
+end)
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Net = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0").net
+
+-- Remotes
+local equipTool = Net:FindFirstChild("RE/EquipToolFromHotbar")
+local chargeRod = Net:FindFirstChild("RF/ChargeFishingRod")
+local startMinigame = Net:FindFirstChild("RF/RequestFishingMinigameStarted")
+local finishFishing = Net:FindFirstChild("RE/FishingCompleted")
+
+-- To  Farm A (c nh)
+local farmPos = Vector3.new(-3728.9, -138.8, -952.8)
+
+-- Trng thái toggle
+local autoFishing = false
+
+-- Hàm teleport ti A và gi yên
+local function teleportToFarmA()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    hrp.CFrame = CFrame.new(farmPos)
+
+    -- Gi yên (fly ng)
+    if hrp:FindFirstChild("BV_Freeze") then
+        hrp.BV_Freeze:Destroy()
+    end
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "BV_Freeze"
+    bv.Velocity = Vector3.new(0,0,0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Parent = hrp
+end
+
+-- Toggle trong UI Rayfield
+local ToggleFarmA = MainTab:CreateToggle({
+   Name = "Auto Farm (Ghostfinn Rod)",
+   CurrentValue = false,
+   Flag = "AutoFarmA",
+   Callback = function(Value)
+       autoFishing = Value
+       print(" Auto Farm A:", Value and "BT" or "TT")
+       if Value then
+           teleportToFarmA()
+       else
+           -- G ng yên nu tt
+           local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+           if hrp and hrp:FindFirstChild("BV_Freeze") then
+               hrp.BV_Freeze:Destroy()
+           end
+       end
+   end,
+})
+
+-- Khi cht / respawn thì TP li
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if autoFishing then
+        teleportToFarmA()
+    end
+end)
+
+-- Vòng lp auto câu
+task.spawn(function()
+    while task.wait(1) do
+        if autoFishing then
+            teleportToFarmA()
+
+            -- Quy trình câu cá
+            pcall(function() equipTool:FireServer(1) end)
+            task.wait(0.5)
+
+            local chargeValue = tick() * 1000
+            pcall(function() chargeRod:InvokeServer(chargeValue) end)
+
+            task.wait(2)
+
+            local args = {
+                [1] = math.random(-2, 2),
+                [2] = math.random()
+            }
+            pcall(function() startMinigame:InvokeServer(unpack(args)) end)
+
+            task.wait(5)
+
+            pcall(function() finishFishing:FireServer() end)
+        end
+    end
+end)
+
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Net = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0").net
+
+-- Remotes
+local equipTool = Net:FindFirstChild("RE/EquipToolFromHotbar")
+local chargeRod = Net:FindFirstChild("RF/ChargeFishingRod")
+local startMinigame = Net:FindFirstChild("RF/RequestFishingMinigameStarted")
+local finishFishing = Net:FindFirstChild("RE/FishingCompleted")
+
+-- Toạ độ Farm A (cố định)
+local farmPos = Vector3.new(3250.1, -1302.9, 1434.5)
+
+-- Trạng thái toggle
+local autoFishing = false
+
+-- Hàm teleport tới A và giữ yên
+local function teleportToFarmA()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    hrp.CFrame = CFrame.new(farmPos)
+
+    -- Giữ yên (fly đứng)
+    if hrp:FindFirstChild("BV_Freeze") then
+        hrp.BV_Freeze:Destroy()
+    end
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "BV_Freeze"
+    bv.Velocity = Vector3.new(0,0,0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Parent = hrp
+end
+
+-- Toggle trong UI Rayfield
+local ToggleFarmA = MainTab:CreateToggle({
+   Name = "Auto Farm Enchant",
+   CurrentValue = false,
+   Flag = "AutoFarmA",
+   Callback = function(Value)
+       autoFishing = Value
+       print("🎣 Auto Farm A:", Value and "BẬT" or "TẮT")
+       if Value then
+           teleportToFarmA()
+       else
+           -- Gỡ đứng yên nếu tắt
+           local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+           if hrp and hrp:FindFirstChild("BV_Freeze") then
+               hrp.BV_Freeze:Destroy()
+           end
+       end
+   end,
+})
+
+-- Khi chết / respawn thì TP lại
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if autoFishing then
+        teleportToFarmA()
+    end
+end)
+
+-- Vòng lặp auto câu
+task.spawn(function()
+    while task.wait(1) do
+        if autoFishing then
+            teleportToFarmA()
+
+            -- Quy trình câu cá
+            pcall(function() equipTool:FireServer(1) end)
+            task.wait(0.5)
+
+            local chargeValue = tick() * 1000
+            pcall(function() chargeRod:InvokeServer(chargeValue) end)
+
+            task.wait(2)
+
+            local args = {
+                [1] = math.random(-2, 2),
+                [2] = math.random()
+            }
+            pcall(function() startMinigame:InvokeServer(unpack(args)) end)
+
+            task.wait(5)
+
+            pcall(function() finishFishing:FireServer() end)
+        end
+    end
+end)
+
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local net = ReplicatedStorage:WaitForChild("Packages")
+    ._Index:WaitForChild("sleitnick_net@0.2.0")
+    .net:WaitForChild("RF/SellAllItems")
+
+-- Biến trạng thái
+local selling = false
+
+local Toggle = MainTab:CreateToggle({
+   Name = "sell fish",
+   CurrentValue = false,
+   Flag = "AutoSellToggle",
+   Callback = function(Value)
+       selling = Value  -- cập nhật trạng thái
+       
+       if selling then
+           -- Tạo một coroutine để không block main thread
+           coroutine.wrap(function()
+               while selling do
+                   -- Gọi server để sell tất cả item
+                   net:InvokeServer()
+                   wait(1)  -- delay 1 giây giữa mỗi lần sell, bạn có thể chỉnh
+               end
+           end)()
+       end
+   end,
+})
+
+local MainSection = MainTab:CreateSection("fake")
+
+-- Script đã fix: không load MeshId ngoài -> không bị "could not fetch"
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local humanoid = char:FindFirstChildOfClass("Humanoid")
+
+-- update character on respawn
+local function onCharacterAdded(c)
+    char = c
+    hrp = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:FindFirstChildOfClass("Humanoid")
+end
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- state
+local animTrack = nil
+local floatConn = nil
+local blackGui = nil
+local halo, innerHalo = nil, nil
+local swords = {}
+local effectsEnabled = false
+local magnetEnabled = false
+local magnetAngle = 0
+
+-- flash screen
+local function flashScreen()
+    if not blackGui then
+        blackGui = Instance.new("ScreenGui")
+        blackGui.IgnoreGuiInset = true
+        blackGui.Parent = player:WaitForChild("PlayerGui")
+
+        local frame = Instance.new("Frame")
+        frame.Name = "BlackFrame"
+        frame.Size = UDim2.fromScale(1,1)
+        frame.BackgroundColor3 = Color3.new(0,0,0)
+        frame.BackgroundTransparency = 1
+        frame.Parent = blackGui
+    end
+    local frame = blackGui:FindFirstChild("BlackFrame")
+    if frame then
+        frame.BackgroundTransparency = 0
+        local tween = TweenService:Create(frame, TweenInfo.new(2, Enum.EasingStyle.Sine), {BackgroundTransparency = 1})
+        tween:Play()
+    end
+end
+
+-- create halo: outer cylinder + inner transparent cylinder (rỗng)
+local function createHalo()
+    -- outer
+    halo = Instance.new("Part")
+    halo.Name = "DarkHalo_Outer"
+    halo.Size = Vector3.new(6, 0.3, 6)
+    halo.Anchored = true
+    halo.CanCollide = false
+    halo.Color = Color3.fromRGB(20,20,20)
+    halo.Material = Enum.Material.Neon
+    halo.CFrame = hrp.CFrame * CFrame.new(0, 4, 0) * CFrame.Angles(math.rad(90),0,0)
+    halo.Parent = char
+
+    local meshOuter = Instance.new("SpecialMesh", halo)
+    meshOuter.MeshType = Enum.MeshType.Cylinder
+    meshOuter.Scale = Vector3.new(1, 0.05, 1)
+
+    -- inner (transparent) to fake hole
+    innerHalo = Instance.new("Part")
+    innerHalo.Name = "DarkHalo_Inner"
+    innerHalo.Size = Vector3.new(4, 0.31, 4)
+    innerHalo.Anchored = true
+    innerHalo.CanCollide = false
+    innerHalo.Transparency = 1
+    innerHalo.CFrame = halo.CFrame
+    innerHalo.Parent = char
+
+    -- subtle light
+    local light = Instance.new("PointLight", halo)
+    light.Color = Color3.fromRGB(50,50,50)
+    light.Brightness = 2
+    light.Range = 12
+
+    -- aura particles
+    local aura = Instance.new("ParticleEmitter", halo)
+    aura.Texture = "rbxassetid://241594419"
+    aura.Rate = 6
+    aura.Lifetime = NumberRange.new(1.5, 2.5)
+    aura.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 6) })
+    aura.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1) })
+    aura.Color = ColorSequence.new(Color3.fromRGB(30,30,30))
+    aura.Speed = NumberRange.new(0.5, 1.5)
+    aura.SpreadAngle = Vector2.new(360, 360)
+    aura.LockedToPart = true
+end
+
+local function removeHalo()
+    if halo then halo:Destroy(); halo = nil end
+    if innerHalo then innerHalo:Destroy(); innerHalo = nil end
+end
+
+-- create swords (simple parts, no external meshes)
+local function createSwords()
+    for i = 1, 4 do
+        local sword = Instance.new("Part")
+        sword.Name = "DarkSword_"..i
+        sword.Size = Vector3.new(0.2, 4, 0.6)
+        sword.Anchored = true
+        sword.CanCollide = false
+        sword.Color = Color3.fromRGB(10,10,10)
+        sword.Material = Enum.Material.Metal
+        sword.Parent = char
+
+        -- small glow / smoke
+        local smoke = Instance.new("ParticleEmitter", sword)
+        smoke.Texture = "rbxassetid://258128463"
+        smoke.Rate = 8
+        smoke.Lifetime = NumberRange.new(0.8, 1.6)
+        smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1.2) })
+        smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1) })
+        smoke.LockedToPart = true
+
+        table.insert(swords, sword)
+    end
+end
+
+local function removeSwords()
+    for _, s in ipairs(swords) do
+        if s and s.Parent then s:Destroy() end
+    end
+    swords = {}
+end
+
+-- floating + sword rotation (relative to hrp)
+local function startFloating()
+    if floatConn then return end
+    local t = 0
+    floatConn = RunService.RenderStepped:Connect(function(dt)
+        t = t + dt * 2
+        -- bob player slightly
+        if hrp and hrp.Parent then
+            local bob = math.sin(t) * 0.5
+            hrp.CFrame = hrp.CFrame + Vector3.new(0, bob * dt, 0)
+        end
+
+        -- swords rotate around player
+        for i, sword in ipairs(swords) do
+            if hrp and sword then
+                local ang = t + (math.pi/2) * (i-1)
+                local radius = 2
+                local pos = hrp.Position + Vector3.new(math.cos(ang)*radius, 1, math.sin(ang)*radius)
+                sword.CFrame = CFrame.new(pos, hrp.Position)
+            end
+        end
+
+        -- keep halo on head (fixed)
+        if halo and hrp then
+            halo.CFrame = hrp.CFrame * CFrame.new(0, 4, 0) * CFrame.Angles(math.rad(90), 0, 0)
+            if innerHalo then innerHalo.CFrame = halo.CFrame end
+        end
+    end)
+end
+
+local function stopFloating()
+    if floatConn then floatConn:Disconnect() floatConn = nil end
+end
+
+-- magnet vehicles (uses workspace.Vehicles if exists)
+local function magnetVehicles()
+    local vehiclesParent = workspace:FindFirstChild("Vehicles") or workspace
+    local hrpLocal = (player.Character and player.Character:FindFirstChild("HumanoidRootPart")) and player.Character.HumanoidRootPart or hrp
+    magnetAngle = magnetAngle + 0.1
+    for _, v in pairs(vehiclesParent:GetChildren()) do
+        if v:IsA("Model") then
+            local part = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")
+            if part then
+                v.PrimaryPart = part
+                local offset = Vector3.new(math.cos(magnetAngle), 0, math.sin(magnetAngle)) * 25
+                local newPos = hrpLocal.Position + offset + Vector3.new(0, 3, 0)
+                -- pcall để tránh crash nếu model locked
+                pcall(function() v:SetPrimaryPartCFrame(CFrame.new(newPos)) end)
+            end
+        end
+    end
+end
+
+-- heartbeat for magnet
+RunService.Heartbeat:Connect(function()
+    if magnetEnabled then
+        pcall(magnetVehicles)
+    end
+end)
+
+-- Play animation safely (pcall if missing)
+local function playAnim()
+    if not humanoid then return end
+    local success, anim = pcall(function()
+        return ReplicatedStorage.Modules and ReplicatedStorage.Modules.Animations and ReplicatedStorage.Modules.Animations:FindFirstChild("NPC_Leaning")
+    end)
+    if success and anim and humanoid then
+        local ok, track = pcall(function() return humanoid:LoadAnimation(anim) end)
+        if ok and track then
+            animTrack = track
+            animTrack:Play()
+            -- when animation ends, we can auto-stop effects if desired:
+            animTrack.Stopped:Connect(function()
+                -- leave as-is; setAll(false) will handle cleanup when toggle off
+            end)
+        end
+    end
+end
+
+local function stopAnim()
+    if animTrack then
+        pcall(function() animTrack:Stop() end)
+        animTrack = nil
+    end
+end
+
+-- main enable/disable
+local function setAll(enable)
+    effectsEnabled = enable
+    if enable then
+        flashScreen()
+        createHalo()
+        createSwords()
+        startFloating()
+        playAnim()
+        magnetEnabled = true
+    else
+        flashScreen()
+        stopAnim()
+        removeHalo()
+        removeSwords()
+        stopFloating()
+        magnetEnabled = false
+    end
+end
+
+-- UI toggle (assumes MainTab exists)
+if MainTab then
+    MainTab:CreateToggle({
+        Name = "Dark v1",
+        CurrentValue = false,
+        Flag = "DarkKatanaModeFull",
+        Callback = function(Value)
+            setAll(Value)
+        end,
+    })
+else
+    warn("Không tìm thấy MainTab — dùng setAll(true/false) để bật/tắt.")
+end
+
+
+-- ⚡ Toggle để bật/tắt bảng thoại + control
+local uiToggle = MainTab:CreateToggle({
+   Name = "📋Bảng UI (Speed + jump)",
+   CurrentValue = false,
+   Flag = "UIToggle",
+   Callback = function(Value)
+       if Value then
+           -- Bật: chạy script tạo bảng
+           loadstring([[
+               -- >>> TOÀN BỘ SCRIPT UI CỦA BẠN <<<
+
+               local Players = game:GetService("Players")
+               local RunService = game:GetService("RunService")
+               local player = Players.LocalPlayer
+
+               local char, head, humanoid
+               local offset = Vector3.new(0, 1, 0)
+               local distance = 5
+               local currentPos
+
+               local function setupCharacter()
+                   char = player.Character or player.CharacterAdded:Wait()
+                   head = char:WaitForChild("Head")
+                   humanoid = char:WaitForChild("Humanoid")
+                   currentPos = head.Position + head.CFrame.LookVector * distance + offset
+               end
+
+               setupCharacter()
+               player.CharacterAdded:Connect(function()
+                   task.wait(1)
+                   setupCharacter()
+               end)
+
+               local function createPanel(name, size, posOffset)
+                   local panel = Instance.new("Part")
+                   panel.Name = name
+                   panel.Size = size
+                   panel.Anchored = true
+                   panel.CanCollide = false
+                   panel.Transparency = 1
+                   panel.Parent = workspace
+
+                   local surfaceGui = Instance.new("SurfaceGui")
+                   surfaceGui.Face = Enum.NormalId.Front
+                   surfaceGui.AlwaysOnTop = true
+                   surfaceGui.LightInfluence = 0
+                   surfaceGui.Parent = panel
+
+                   local background = Instance.new("Frame")
+                   background.Size = UDim2.new(1, 0, 1, 0)
+                   background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                   background.BackgroundTransparency = 0.4
+                   background.BorderSizePixel = 0
+                   background.Parent = surfaceGui
+
+                   local corners = {}
+                   local function createCorner(parent, posX, posY, anchorX, anchorY, rot)
+                       local corner = Instance.new("Frame")
+                       corner.Size = UDim2.new(0, 40, 0, 40)
+                       corner.Position = UDim2.new(posX, 0, posY, 0)
+                       corner.AnchorPoint = Vector2.new(anchorX, anchorY)
+                       corner.BackgroundTransparency = 1
+                       corner.Parent = parent
+
+                       local lineH = Instance.new("Frame")
+                       lineH.Size = UDim2.new(1, 0, 0, 3)
+                       lineH.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                       lineH.BorderSizePixel = 0
+                       lineH.Parent = corner
+
+                       local lineV = Instance.new("Frame")
+                       lineV.Size = UDim2.new(0, 3, 1, 0)
+                       lineV.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                       lineV.BorderSizePixel = 0
+                       lineV.Parent = corner
+
+                       corner.Rotation = rot
+                       table.insert(corners, {lineH, lineV})
+                   end
+
+                   createCorner(background, 0, 0, 0, 0, 0)
+                   createCorner(background, 1, 0, 1, 0, 90)
+                   createCorner(background, 1, 1, 1, 1, 180)
+                   createCorner(background, 0, 1, 0, 1, 270)
+
+                   return panel, background, corners
+               end
+
+               -- Bảng thoại
+               local dialoguePanel, dialogueBg, dialogueCorners = createPanel("DialoguePanel", Vector3.new(6, 4, 0.2))
+               local label = Instance.new("TextLabel")
+               label.Size = UDim2.new(1, -20, 1, -20)
+               label.Position = UDim2.new(0, 10, 0, 10)
+               label.BackgroundTransparency = 1
+               label.Text = ""
+               label.Font = Enum.Font.SourceSansBold
+               label.TextSize = 55
+               label.TextColor3 = Color3.fromRGB(255, 255, 255)
+               label.TextStrokeTransparency = 0.3
+               label.TextWrapped = true
+               label.Parent = dialogueBg
+
+               local dialogues = {
+                   {text = "Thông tin : khanhly \\ script tbao", waitTime = 10},
+                   {text = "Oh man are you hanging up the game", waitTime = 60},
+                   {text = "How is your life?", waitTime = 5},
+                   {text = "Are you AFK?", waitTime = 5},
+                   {text = "I am playing liên quân now", waitTime = 20},
+                   {text = "Bored now have to make scripts for users haizz", waitTime = 5},
+                   {text = "you look so handsome", waitTime = 10},
+                   {text = "Do you like khanhly script?", waitTime = 10},
+                   {text = "do you know Tbao script?", waitTime = 10},
+                   {text = "Tbao's script is very gay 🤣", waitTime = 10},
+                   {text = "what country are you in?", waitTime = 10},
+                   {text = "but i live in vietnam🇻🇳😘", waitTime = 5},
+                   {text = "I think you really like this game?", waitTime = 10},
+                   {text = "If you are free, please support Khanhly's script😘", waitTime = 5},
+                   {text = "thank bye", waitTime = 5},
+               }
+
+               local typingSpeed = 0.05
+               task.spawn(function()
+                   while true do
+                       for _, dialogue in ipairs(dialogues) do
+                           label.Text = ""
+                           local fullText = dialogue.text
+                           for i = 1, #fullText do
+                               label.Text = string.sub(fullText, 1, i)
+                               task.wait(typingSpeed)
+                           end
+                           task.wait(dialogue.waitTime)
+                       end
+                   end
+               end)
+
+               -- Bảng control
+               local controlPanel, controlBg, controlCorners = createPanel("ControlPanel", Vector3.new(4, 3, 0.2))
+
+               local speedBtn = Instance.new("TextButton")
+               speedBtn.Size = UDim2.new(0.8, 0, 0.4, 0)
+               speedBtn.Position = UDim2.new(0.1, 0, 0.1, 0)
+               speedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+               speedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+               speedBtn.TextScaled = true
+               speedBtn.Text = "🚀 Speed +"
+               speedBtn.Parent = controlBg
+               speedBtn.MouseButton1Click:Connect(function()
+                   if humanoid then humanoid.WalkSpeed = humanoid.WalkSpeed + 10 end
+               end)
+
+               local jumpBtn = Instance.new("TextButton")
+               jumpBtn.Size = UDim2.new(0.8, 0, 0.4, 0)
+               jumpBtn.Position = UDim2.new(0.1, 0, 0.55, 0)
+               jumpBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+               jumpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+               jumpBtn.TextScaled = true
+               jumpBtn.Text = "🦘 Jump +"
+               jumpBtn.Parent = controlBg
+               jumpBtn.MouseButton1Click:Connect(function()
+                   if humanoid then humanoid.JumpPower = humanoid.JumpPower + 10 end
+               end)
+
+               local t = 0
+               RunService.RenderStepped:Connect(function(dt)
+                   if head and head.Parent then
+                       local targetPos1 = head.Position + head.CFrame.LookVector * distance + offset
+                       currentPos = currentPos:Lerp(targetPos1, 0.05)
+                       dialoguePanel.CFrame = CFrame.new(currentPos, head.Position + Vector3.new(0,1,0))
+
+                       local rightOffset = head.CFrame.RightVector * 6
+                       local upDownOffset = Vector3.new(0, -0.5, 0)
+                       local targetPos2 = head.Position + rightOffset + Vector3.new(0, 1, 0) + upDownOffset
+                       controlPanel.CFrame = CFrame.new(targetPos2, head.Position + Vector3.new(0,1,0))
+
+                       t = t + dt
+                       local brightness = 0.5 + math.sin(t * 3) * 0.5
+                       local color = Color3.new(brightness, brightness, brightness)
+
+                       label.TextColor3 = color
+                       for _, c in ipairs(dialogueCorners) do
+                           for _, line in ipairs(c) do line.BackgroundColor3 = color end
+                       end
+                       for _, c in ipairs(controlCorners) do
+                           for _, line in ipairs(c) do line.BackgroundColor3 = color end
+                       end
+                   end
+               end)
+           ]])()
+       else
+           -- Tắt: xóa các bảng nếu tồn tại
+           if workspace:FindFirstChild("DialoguePanel") then workspace.DialoguePanel:Destroy() end
+           if workspace:FindFirstChild("ControlPanel") then workspace.ControlPanel:Destroy() end
+       end
+   end,
+})
+
+
+local SpTab = Window:CreateTab("🛍️shop", nil) -- Title, Image
+    local MainSection = SpTab:CreateSection("shop rod")
+    
+    local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Hàm lấy HRP mới nhất sau khi reset
+local function getHRP()
+    local character = player.Character or player.CharacterAdded:Wait()
+    return character:WaitForChild("HumanoidRootPart")
+end
+
+-- TP đến Angler Rod Stand
+local Button1 = SpTab:CreateButton({
+    Name = "Angler Rod 8M",
+    Callback = function()
+        local hrp = getHRP()
+        local targetPart = workspace["!!! MENU RINGS"]["Angler Rod Stand"].Part
+        if hrp and targetPart then
+            hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3, 0)
+        end
+    end,
+})
+
+-- TP đến Ares Rod Stand
+local Button2 = SpTab:CreateButton({
+    Name = "Ares Rod 3M",
+    Callback = function()
+        local hrp = getHRP()
+        local targetPart = workspace["!!! MENU RINGS"]["Ares Rod Stand"].Part
+        if hrp and targetPart then
+            hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3, 0)
+        end
+    end,
+})
+
+
+local Net = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net
+local PurchaseRod = Net:FindFirstChild("RF/PurchaseFishingRod")
+
+-- Bảng ID của từng cần
+local RodIDs = {
+    LuckRod = 79,       -- 350$
+    CarbonRod = 76,     -- 900$
+    GrassRod = 85,      -- 1.50k$
+    DemascusRod = 77,   -- 3k$
+    IceRod = 78,        -- 5k$
+    LuckyRod = 4,       -- 15k$
+    MidnightRod = 80,   -- 50k$
+    SteampunkRod = 6,   -- 215k$
+    ChromeRod = 7,      -- 437k$
+    AstralRod = 5,      -- 1M$
+}
+
+-- Lưu trạng thái toggle
+local autoBuy = {}
+
+-- Hàm auto mua
+local function startAutoBuy(id, key)
+    task.spawn(function()
+        while autoBuy[key] do
+            PurchaseRod:InvokeServer(id)
+            task.wait(1) -- tránh spam
+        end
+    end)
+end
+
+-- Tạo toggle nhanh
+local function createRodToggle(name, key, id)
+    SpTab:CreateToggle({
+        Name = "Auto Buy " .. name,
+        CurrentValue = false,
+        Flag = "Toggle_" .. key,
+        SectionParent = MainSection,
+        Callback = function(val)
+            autoBuy[key] = val
+            if val then startAutoBuy(id, key) end
+        end,
+    })
+end
+
+-- 10 toggle
+createRodToggle("Luck Rod (350$)", "LuckRod", RodIDs.LuckRod)
+createRodToggle("Carbon Rod (900$)", "CarbonRod", RodIDs.CarbonRod)
+createRodToggle("Grass Rod (1.50k$)", "GrassRod", RodIDs.GrassRod)
+createRodToggle("Demascus Rod (3k$)", "DemascusRod", RodIDs.DemascusRod)
+createRodToggle("Ice Rod (5k$)", "IceRod", RodIDs.IceRod)
+createRodToggle("Lucky Rod (15k$)", "LuckyRod", RodIDs.LuckyRod)
+createRodToggle("Midnight Rod (50k$)", "MidnightRod", RodIDs.MidnightRod)
+createRodToggle("Steampunk Rod (215k$)", "SteampunkRod", RodIDs.SteampunkRod)
+createRodToggle("Chrome Rod (437k$)", "ChromeRod", RodIDs.ChromeRod)
+createRodToggle("Astral Rod (1M$)", "AstralRod", RodIDs.AstralRod)
+
+local MainSection = SpTab:CreateSection("shop bobber")
+
+local Net = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net
+local PurchaseBait = Net:FindFirstChild("RF/PurchaseBait")
+
+-- ID của các loại mồi
+local BaitIDs = {
+    TopwaterBait = 10,    -- 100$
+    LuckBait = 2,         -- 1k$
+    MidnightBait = 3,     -- 3k$
+    ChromaBait = 6,       -- 290k$
+    DarkMatterBait = 8,   -- 630k$
+    CorruptBait = 15,     -- 1.15M$
+    RatherBait = 15,      -- 3.70M$  (chung ID với CorruptBait, game có thể dùng điều kiện khác)
+}
+
+-- Lưu trạng thái toggle
+local autoBuy = {}
+
+-- Hàm auto mua
+local function startAutoBuy(id, key)
+    task.spawn(function()
+        while autoBuy[key] do
+            PurchaseBait:InvokeServer(id)
+            task.wait(1) -- tránh spam
+        end
+    end)
+end
+
+-- Hàm tạo toggle nhanh
+local function createBaitToggle(name, key, id)
+    SpTab:CreateToggle({
+        Name = "Auto Buy " .. name,
+        CurrentValue = false,
+        Flag = "Toggle_" .. key,
+        SectionParent = MainSection,
+        Callback = function(val)
+            autoBuy[key] = val
+            if val then startAutoBuy(id, key) end
+        end,
+    })
+end
+
+-- Tạo toggle cho từng loại mồi
+createBaitToggle("Topwater Bait (100$)", "Topwater", BaitIDs.TopwaterBait)
+createBaitToggle("Luck Bait (1k$)", "Luck", BaitIDs.LuckBait)
+createBaitToggle("Midnight Bait (3k$)", "Midnight", BaitIDs.MidnightBait)
+createBaitToggle("Chroma Bait (290k$)", "Chroma", BaitIDs.ChromaBait)
+createBaitToggle("Dark Matter Bait (630k$)", "DarkMatter", BaitIDs.DarkMatterBait)
+createBaitToggle("Corrupt Bait (1.15M$)", "Corrupt", BaitIDs.CorruptBait)
+createBaitToggle("Rather Bait (3.70M$)", "Rather", BaitIDs.RatherBait)
+
+local IsdTab = Window:CreateTab("Tp island🗺️", nil) -- Title, Image
+    local MainSection = IsdTab:CreateSection("island")
+    
+    
+    local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Hàm lấy HRP hiện tại
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+-- Biến lưu HRP
+local hrp = getHRP()
+
+-- Khi nhân vật respawn -> cập nhật lại HRP
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- Hàm TP
+local function teleportToCFrame(cf)
+    if hrp then
+        hrp.CFrame = cf + Vector3.new(0, 5, 0) -- đứng cao hơn 5 để tránh kẹt
+    end
+end
+
+-- Nút Teleport Enchant Story
+local EnchantBtn = IsdTab:CreateButton({
+   Name = "Teleport Enchant Story",
+   Callback = function()
+      teleportToCFrame(CFrame.new(3229.3, -1280.5, 1403.3))
+   end,
+})
+    
+    
+    local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Hàm lấy HRP hiện tại
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+-- Biến lưu HRP
+local hrp = getHRP()
+
+-- Khi nhân vật respawn -> cập nhật lại HRP
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+local islands = workspace["!!!! ISLAND LOCATIONS !!!!"]
+
+local function teleportTo(part)
+    if not hrp then return end
+    if part and part:IsA("BasePart") then
+        hrp.CFrame = part.CFrame + Vector3.new(0, 5, 0)
+    elseif part and part:FindFirstChild("Part") then
+        hrp.CFrame = part.Part.CFrame + Vector3.new(0, 5, 0)
+    end
+end
+
+-- Coral Reefs
+local Button1 = IsdTab:CreateButton({
+   Name = "Teleport Coral Reefs",
+   Callback = function()
+      teleportTo(islands["Coral Reefs"])
+   end,
+})
+
+-- Crater Island
+local Button2 = IsdTab:CreateButton({
+   Name = "Teleport Crater Island",
+   Callback = function()
+      teleportTo(islands["Crater Island"])
+   end,
+})
+
+-- Esoteric Depths
+local Button3 = IsdTab:CreateButton({
+   Name = "Teleport Esoteric Depths",
+   Callback = function()
+      teleportTo(islands["Esoteric Depths"])
+   end,
+})
+
+-- Fisherman Island
+local Button4 = IsdTab:CreateButton({
+   Name = "Teleport Fisherman Island",
+   Callback = function()
+      teleportTo(islands["Fisherman Island"])
+   end,
+})
+
+-- Kohana
+local Button5 = IsdTab:CreateButton({
+   Name = "Teleport Kohana",
+   Callback = function()
+      teleportTo(islands.Kohana)
+   end,
+})
+
+-- Kohana Volcano
+local Button6 = IsdTab:CreateButton({
+   Name = "Teleport Kohana Volcano",
+   Callback = function()
+      teleportTo(islands["Kohana Volcano"])
+   end,
+})
+
+-- Lost Isle
+local Button7 = IsdTab:CreateButton({
+   Name = "Teleport Lost Isle",
+   Callback = function()
+      teleportTo(islands["Lost Isle"])
+   end,
+})
+
+-- Tropical Grove
+local Button8 = IsdTab:CreateButton({
+   Name = "Teleport Tropical Grove",
+   Callback = function()
+      teleportTo(islands["Tropical Grove"])
+   end,
+})
+
+-- Weather Machine
+local Button9 = IsdTab:CreateButton({
+   Name = "Teleport Weather Machine",
+   Callback = function()
+      teleportTo(islands["Weather Machine"])
+   end,
+})
+
+local StigTab = Window:CreateTab("settings ⚓", nil) -- Title, Image
+    local MainSection = StigTab:CreateSection("settings")
+
+local AntiLagLevel = "Normal"
+
+local Dropdown = StigTab:CreateDropdown({
+   Name = " Anti-Lag Mode",
+   Options = {"Normal", "Low", "Super Low", "Wireframe"},
+   CurrentOption = {"Normal"},
+   Flag = "AntiLagDropdown",
+   Callback = function(Option)
+      AntiLagLevel = Option[1]
+
+      -- Restore mc nh
+      if AntiLagLevel == "Normal" then
+         settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+         game.Lighting.GlobalShadows = true
+         game.Lighting.FogEnd = 1000
+         game.Lighting.Brightness = 2
+         game.Lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
+         print(" Anti-Lag: Normal")
+         return
+      end
+
+      -- Ch  Low, Super Low, Wireframe
+      settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+      game.Lighting.GlobalShadows = false
+      game.Lighting.FogEnd = 9999
+      game.Lighting.Brightness = 1
+      game.Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+
+      local function optimize(v)
+          -- Xoá hiu ng nng
+          if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") 
+          or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Beam") then
+              v.Enabled = false
+          end
+
+          -- X lý Part / MeshPart  thành xám ti
+          if v:IsA("MeshPart") or v:IsA("Part") then
+              v.Material = Enum.Material.SmoothPlastic
+              v.CastShadow = false
+
+              if AntiLagLevel == "Wireframe" then
+                  v.Color = Color3.fromRGB(60, 60, 60) -- xám ti
+                  v.Transparency = 0.3
+              else
+                  v.Color = Color3.fromRGB(60, 60, 60) -- xám ti
+                  v.Transparency = 0
+              end
+
+              if v:IsA("MeshPart") then
+                  v.TextureID = "" -- xoá texture
+              end
+          end
+
+          -- Gim màu nhân vt  xám ti
+          if v:IsA("Shirt") or v:IsA("Pants") then
+              v:Destroy()
+          end
+          if v:IsA("BodyColors") then
+              v.HeadColor = BrickColor.new("Dark stone grey")
+              v.LeftArmColor = BrickColor.new("Dark stone grey")
+              v.RightArmColor = BrickColor.new("Dark stone grey")
+              v.LeftLegColor = BrickColor.new("Dark stone grey")
+              v.RightLegColor = BrickColor.new("Dark stone grey")
+              v.TorsoColor = BrickColor.new("Dark stone grey")
+          end
+
+          -- Super Low xoá thêm ph kin/mt
+          if AntiLagLevel == "Super Low" or AntiLagLevel == "Wireframe" then
+              if v:IsA("Accessory") or v:IsA("Hat") then
+                  v:Destroy()
+              end
+              if v:IsA("Decal") then
+                  v:Destroy()
+              end
+          end
+      end
+
+      -- Quét map + nhân vt
+      for _, v in pairs(workspace:GetDescendants()) do
+          optimize(v)
+      end
+      workspace.DescendantAdded:Connect(optimize)
+      for _, p in pairs(game.Players:GetPlayers()) do
+          if p.Character then
+              for _, part in pairs(p.Character:GetDescendants()) do
+                  optimize(part)
+              end
+          end
+      end
+
+      print(" Anti-Lag: "..AntiLagLevel.." mode (Dark Gray)")
+   end,
+})
+
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local function serverHop()
+    local gameId = game.PlaceId
+    local currentJobId = game.JobId
+    local servers = {}
+
+    local success, result = pcall(function()
+        return game:HttpGet("https://games.roblox.com/v1/games/"..gameId.."/servers/Public?sortOrder=Asc&limit=100")
+    end)
+
+    if not success then
+        warn(" Không ly c danh sách server")
+        return
+    end
+
+    local data = HttpService:JSONDecode(result)
+    for _, server in pairs(data.data) do
+        if server.id ~= currentJobId and server.playing < server.maxPlayers then
+            table.insert(servers, server.id)
+        end
+    end
+
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+        TeleportService:TeleportToPlaceInstance(gameId, randomServer, Players.LocalPlayer)
+        print(" ang chuyn sang server mi...")
+    else
+        warn(" Không tìm thy server phù hp")
+    end
+end
+
+-- Button trong Rayfield
+local Button = StigTab:CreateButton({
+   Name = " Server Hop",
+   Callback = function()
+       serverHop()
+   end,
+})
