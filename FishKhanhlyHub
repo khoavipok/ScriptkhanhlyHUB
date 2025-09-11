@@ -329,7 +329,7 @@ local startMinigame = Net:FindFirstChild("RF/RequestFishingMinigameStarted")
 local finishFishing = Net:FindFirstChild("RE/FishingCompleted")
 
 -- Toạ độ Farm A (cố định)
-local farmPos = Vector3.new(3250.1, -1302.9, 1434.5)
+local farmPos = Vector3.new(3241.9, -1307.3, 1346.5)
 
 -- Trạng thái toggle
 local autoFishing = false
