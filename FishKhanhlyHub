@@ -1159,7 +1159,115 @@ local Button9 = IsdTab:CreateButton({
 })
 
 local StigTab = Window:CreateTab("settings ⚓", nil) -- Title, Image
-    local MainSection = StigTab:CreateSection("settings")
+    local MainSection = StigTab:CreateSection("ESP👁️")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local espMap = {}
+local espEnabled = false
+
+-- Hàm tạo ESP
+local function createESP(player, character)
+    if player == localPlayer then return end
+    if not character then return end
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+
+    if espMap[player] and espMap[player].gui then
+        espMap[player].gui:Destroy()
+    end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 150, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local label = Instance.new("TextLabel", billboard)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.TextStrokeTransparency = 0.3
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+    espMap[player] = { gui = billboard, text = label }
+end
+
+-- Hàm xoá ESP
+local function removeESP(player)
+    if espMap[player] then
+        if espMap[player].gui then
+            espMap[player].gui:Destroy()
+        end
+        espMap[player] = nil
+    end
+end
+
+-- Hàm bật ESP
+local function enableESP()
+    espEnabled = true
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= localPlayer then
+            if p.Character then
+                createESP(p, p.Character)
+            end
+            p.CharacterAdded:Connect(function(char)
+                if espEnabled then
+                    task.wait(0.2)
+                    createESP(p, char)
+                end
+            end)
+        end
+    end
+    Players.PlayerRemoving:Connect(removeESP)
+end
+
+-- Hàm tắt ESP
+local function disableESP()
+    espEnabled = false
+    for p, data in pairs(espMap) do
+        if data.gui then data.gui:Destroy() end
+    end
+    espMap = {}
+end
+
+-- Cập nhật khoảng cách
+RunService.RenderStepped:Connect(function()
+    if not espEnabled then return end
+    for player, data in pairs(espMap) do
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local theirRoot = char.HumanoidRootPart
+            if myRoot and theirRoot then
+                local dist = (myRoot.Position - theirRoot.Position).Magnitude
+                data.text.Text = player.Name.." ["..math.floor(dist).."M]"
+            end
+        else
+            data.text.Text = ""
+        end
+    end
+end)
+
+-- Toggle của Rayfield
+local Toggle = StigTab:CreateToggle({
+   Name = "ESP Players",
+   CurrentValue = false,
+   Flag = "ESPPlayers",
+   Callback = function(Value)
+      if Value then
+          enableESP()
+      else
+          disableESP()
+      end
+   end,
+})
+
+local MainSection = StigTab:CreateSection("settings 🛠️")
 
 local AntiLagLevel = "Normal"
 
