@@ -43,370 +43,352 @@ local Button = DiscordTab:CreateButton({
     end,
 })
 
-
 local MainTab = Window:CreateTab("farm🐟", nil) -- Title, Image
-    local MainSection = MainTab:CreateSection("farm")
+    local MainSection = MainTab:CreateSection("autoClick")
 
-
---// Services & Remotes
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Net = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("_Index"):FindFirstChild("sleitnick_net@0.2.0")
-Net = Net and Net:FindFirstChild("net")
+local RS = game:GetService("ReplicatedStorage")
+local Net = RS.Packages._Index["sleitnick_net@0.2.0"].net
 
-local function getRemote(name)
-    local r = Net and Net:FindFirstChild(name)
-    if not r then warn("⚠️ Missing remote:", name) end
-    return r
+-- Remotes
+local equipTool     = Net:FindFirstChild("RE/EquipToolFromHotbar")
+local chargeRod     = Net:FindFirstChild("RF/ChargeFishingRod")
+local startMinigame = Net:FindFirstChild("RF/RequestFishingMinigameStarted")
+local finishFishing = Net:FindFirstChild("RE/FishingCompleted")
+
+local player = Players.LocalPlayer
+local autoFishing = false -- cờ bật/tắt
+
+-- Ép cầm cần
+local function forceEquipRod()
+    pcall(function()
+        equipTool:FireServer(1) -- ép slot 1 (cần câu)
+    end)
 end
 
-local equipTool     = getRemote("RE/EquipToolFromHotbar")
-local chargeRod     = getRemote("RF/ChargeFishingRod")
-local startMinigame = getRemote("RF/RequestFishingMinigameStarted")
-local finishFishing = getRemote("RE/FishingCompleted")
+-- Toggle trong Rayfield UI
+local Toggle = MainTab:CreateToggle({
+   Name = "Auto sentence fish",
+   CurrentValue = false,
+   Flag = "AutoFishingToggle",
+   Callback = function(Value)
+      autoFishing = Value
+   end,
+})
 
---// State
-local autoFarmA = false
-local autoFarmB = false
-local farmingAt = "None"
-local farmAPos = Vector3.new(1013.1, 1, 5079.8) -- cố định Farm A
+-- Loop auto fishing
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if autoFishing then
+            -- 0. Cầm cần
+            forceEquipRod()
+            task.wait(1)
 
-local sharkAddedConn, sharkRemovedConn
+            -- 1. Charge Rod
+            local chargeValue = tick() * 1000
+            pcall(function() chargeRod:InvokeServer(chargeValue) end)
+            task.wait(1)
 
---// Helpers
+            -- 2. Ném phao
+            local args = {
+                [1] = math.random(-2, 2),
+                [2] = math.random()
+            }
+            pcall(function() startMinigame:InvokeServer(unpack(args)) end)
+
+            -- 3. Skip minigame
+            task.wait(2.8)
+            pcall(function() finishFishing:FireServer() end)
+
+            -- 4. Chờ 1.2s rồi lặp vòng mới
+            task.wait(0.1)
+        end
+    end
+end)
+
+local MainSection = MainTab:CreateSection("farm+Event")
+
+
+-- Farm Toạ Độ (Cấp bậc 2)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Toạ độ + góc xoay bạn muốn farm
+local FARM_POS = Vector3.new(1003.1, 2.5, 5085.3) -- chỉnh theo toạ độ bạn muốn
+local FARM_YAW = 140.6 -- góc quay (theo độ, ví dụ: Đông = 90, Tây = -90)
+
+local farming = false
+local hrp
+
+-- Cập nhật HRP khi respawn
 local function getHRP()
     local char = player.Character or player.CharacterAdded:Wait()
     return char:WaitForChild("HumanoidRootPart")
 end
 
-local function teleportAndFreeze(pos)
-    local hrp = getHRP()
-    hrp.CFrame = CFrame.new(pos)
-    if hrp:FindFirstChild("BV_Freeze") then
-        hrp.BV_Freeze:Destroy()
+hrp = getHRP()
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- Platform dưới chân
+local function createPlatform()
+    local p = workspace:FindFirstChild("FarmPlatform")
+    if not p then
+        p = Instance.new("Part")
+        p.Name = "FarmPlatform"
+        p.Size = Vector3.new(20, 1, 20)
+        p.Anchored = true
+        p.CanCollide = true
+        p.Parent = workspace
     end
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "BV_Freeze"
-    bv.Velocity = Vector3.new(0,0,0)
-    bv.MaxForce = Vector3.new(9e9,9e9,9e9)
-    bv.Parent = hrp
+    p.Position = FARM_POS - Vector3.new(0, 3, 0)
 end
 
-local function getSharkHuntObject()
-    local props = workspace:FindFirstChild("Props")
-    return props and props:FindFirstChild("Shark Hunt") or nil
-end
+-- TP liên tục (tọa độ + xoay)
+RunService.Heartbeat:Connect(function()
+    if farming and hrp then
+        -- Nếu có Event (cấp bậc 1) thì bỏ qua farm tọa độ
+        if workspace:FindFirstChild("Shark Hunt") 
+        or workspace:FindFirstChild("Megalodon Hunt")
+        or workspace:FindFirstChild("Ghost Shark Hunt") then
+            return
+        end
 
-local function getSharkHuntPos()
-    local obj = getSharkHuntObject()
-    if not obj then return nil end
-    if obj:IsA("Model") then
-        return obj:GetPivot().Position
-    elseif obj:IsA("BasePart") then
-        return obj.Position
-    else
-        local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart", true)
-        return pp and pp.Position or nil
+        createPlatform()
+        hrp.CFrame = CFrame.new(FARM_POS) * CFrame.Angles(0, math.rad(FARM_YAW), 0)
     end
-end
+end)
 
-local function startWatchingSharkHunt()
-    if sharkAddedConn then sharkAddedConn:Disconnect() sharkAddedConn=nil end
-    if sharkRemovedConn then sharkRemovedConn:Disconnect() sharkRemovedConn=nil end
-    local props = workspace:FindFirstChild("Props")
-    if not props then return end
-
-    sharkAddedConn = props.ChildAdded:Connect(function(child)
-        if child.Name == "Shark Hunt" and autoFarmB then
-            local pos = getSharkHuntPos()
-            if pos then
-                farmingAt="B"
-                teleportAndFreeze(pos)
-            end
-        end
-    end)
-
-    sharkRemovedConn = props.ChildRemoved:Connect(function(child)
-        if child.Name=="Shark Hunt" and autoFarmB then
-            if autoFarmA and farmAPos then
-                farmingAt="A"
-                teleportAndFreeze(farmAPos)
-            else
-                farmingAt="None"
-            end
-        end
-    end)
-end
-
-local function stopWatchingSharkHunt()
-    if sharkAddedConn then sharkAddedConn:Disconnect() sharkAddedConn=nil end
-    if sharkRemovedConn then sharkRemovedConn:Disconnect() sharkRemovedConn=nil end
-end
-
---// Fishing Routine
-local function doFishing()
-    if not (equipTool and chargeRod and startMinigame and finishFishing) then return end
-    equipTool:FireServer(1)
-    task.wait(0.5)
-    chargeRod:InvokeServer(tick()*1000)
-    task.wait(2)
-    startMinigame:InvokeServer(math.random(-2,2), math.random())
-    task.wait(5)
-    finishFishing:FireServer()
-end
-
---// UI Toggles
-MainTab:CreateToggle({
-    Name = "Auto Farm",
-    CurrentValue = false,
-    Flag = "FarmA",
-    Callback = function(Value)
-        autoFarmA=Value
-        if Value and farmingAt~="B" then
-            farmingAt="A"
-            teleportAndFreeze(farmAPos)
-        elseif not Value and farmingAt=="A" then
-            farmingAt=autoFarmB and "B" or "None"
-        end
-    end,
+-- 🔥 Toggle Rayfield
+local FarmToggle = MainTab:CreateToggle({
+   Name = "Tp farm coins",
+   CurrentValue = false,
+   Flag = "FarmToaDo",
+   Callback = function(Value)
+       farming = Value
+   end,
 })
 
-MainTab:CreateToggle({
-    Name = "Auto Event (Shark Hunt)",
+-- Farm Toạ Độ (Cấp bậc 2)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Toạ độ + góc xoay bạn muốn farm
+local FARM_POS = Vector3.new(3302.0, -1302.3, 1421.0) -- chỉnh theo toạ độ bạn muốn
+local FARM_YAW = 108.0 -- góc quay (theo độ, ví dụ: Đông = 90, Tây = -90)
+
+local farming = false
+local hrp
+
+-- Cập nhật HRP khi respawn
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+hrp = getHRP()
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- Platform dưới chân
+local function createPlatform()
+    local p = workspace:FindFirstChild("FarmPlatform")
+    if not p then
+        p = Instance.new("Part")
+        p.Name = "FarmPlatform"
+        p.Size = Vector3.new(20, 1, 20)
+        p.Anchored = true
+        p.CanCollide = true
+        p.Parent = workspace
+    end
+    p.Position = FARM_POS - Vector3.new(0, 3, 0)
+end
+
+-- TP liên tục (tọa độ + xoay)
+RunService.Heartbeat:Connect(function()
+    if farming and hrp then
+        -- Nếu có Event (cấp bậc 1) thì bỏ qua farm tọa độ
+        if workspace:FindFirstChild("Shark Hunt") 
+        or workspace:FindFirstChild("Megalodon Hunt")
+        or workspace:FindFirstChild("Ghost Shark Hunt") then
+            return
+        end
+
+        createPlatform()
+        hrp.CFrame = CFrame.new(FARM_POS) * CFrame.Angles(0, math.rad(FARM_YAW), 0)
+    end
+end)
+
+-- 🔥 Toggle Rayfield
+local FarmToggle = MainTab:CreateToggle({
+   Name = "Farm stone Enchant",
+   CurrentValue = false,
+   Flag = "FarmToaDo",
+   Callback = function(Value)
+       farming = Value
+   end,
+})
+
+-- Farm Toạ Độ (Cấp bậc 2)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+-- Toạ độ + góc xoay bạn muốn farm
+local FARM_POS = Vector3.new(-3706.5, -124.4, -922.4) -- chỉnh theo toạ độ bạn muốn
+local FARM_YAW = -152.3 -- góc quay (theo độ, ví dụ: Đông = 90, Tây = -90)
+
+local farming = false
+local hrp
+
+-- Cập nhật HRP khi respawn
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+hrp = getHRP()
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- Platform dưới chân
+local function createPlatform()
+    local p = workspace:FindFirstChild("FarmPlatform")
+    if not p then
+        p = Instance.new("Part")
+        p.Name = "FarmPlatform"
+        p.Size = Vector3.new(20, 1, 20)
+        p.Anchored = true
+        p.CanCollide = true
+        p.Parent = workspace
+    end
+    p.Position = FARM_POS - Vector3.new(0, 3, 0)
+end
+
+-- TP liên tục (tọa độ + xoay)
+RunService.Heartbeat:Connect(function()
+    if farming and hrp then
+        -- Nếu có Event (cấp bậc 1) thì bỏ qua farm tọa độ
+        if workspace:FindFirstChild("Shark Hunt") 
+        or workspace:FindFirstChild("Megalodon Hunt")
+        or workspace:FindFirstChild("Ghost Shark Hunt") then
+            return
+        end
+
+        createPlatform()
+        hrp.CFrame = CFrame.new(FARM_POS) * CFrame.Angles(0, math.rad(FARM_YAW), 0)
+    end
+end)
+
+-- 🔥 Toggle Rayfield
+local FarmToggle = MainTab:CreateToggle({
+   Name = "TP Farm (Ghostfinn Rod)",
+   CurrentValue = false,
+   Flag = "FarmToaDo",
+   Callback = function(Value)
+       farming = Value
+   end,
+})
+
+
+-- 📌 Dịch vụ
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+-- 🔍 Hàm lấy toạ độ Event
+local function getEventPosition(eventName)
+    local eventFolder = workspace.Props:FindFirstChild(eventName)
+    if eventFolder then
+        -- Nếu có Part cùng tên bên trong thì lấy
+        local part = eventFolder:FindFirstChild(eventName)
+        if part and part:IsA("BasePart") then
+            return part.Position
+        end
+        -- Nếu bản thân nó là Part thì lấy luôn
+        if eventFolder:IsA("BasePart") then
+            return eventFolder.Position
+        end
+        -- Nếu là Model → lấy PrimaryPart
+        if eventFolder:IsA("Model") and eventFolder.PrimaryPart then
+            return eventFolder.PrimaryPart.Position
+        end
+    end
+    return nil
+end
+
+-- ⚡ Trạng thái Toggle
+local sharkFarm = false
+local megaFarm = false
+local ghostFarm = false
+
+-- 📌 Vòng lặp TP liên tục
+RunService.Heartbeat:Connect(function()
+    if sharkFarm then
+        local pos = getEventPosition("Shark Hunt")
+        if pos then
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        end
+    elseif megaFarm then
+        local pos = getEventPosition("Megalodon Hunt")
+        if pos then
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        end
+    elseif ghostFarm then
+        local pos = getEventPosition("Ghost Shark Hunt")
+        if pos then
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        end
+    end
+end)
+
+-- 🎛️ Toggle Rayfield
+local SharkToggle = MainTab:CreateToggle({
+    Name = "Farm Shark Hunt",
     CurrentValue = false,
-    Flag = "FarmB",
+    Flag = "FarmShark",
     Callback = function(Value)
-        autoFarmB=Value
+        sharkFarm = Value
         if Value then
-            startWatchingSharkHunt()
-            local pos=getSharkHuntPos()
-            if pos then
-                farmingAt="B"
-                teleportAndFreeze(pos)
-            end
-        else
-            stopWatchingSharkHunt()
-            if farmingAt=="B" then
-                if autoFarmA and farmAPos then
-                    farmingAt="A"
-                    teleportAndFreeze(farmAPos)
-                else
-                    farmingAt="None"
-                end
-            end
+            megaFarm = false
+            ghostFarm = false
         end
     end,
 })
 
---// Respawn
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    if farmingAt=="A" and autoFarmA then
-        teleportAndFreeze(farmAPos)
-    elseif farmingAt=="B" and autoFarmB then
-        local pos=getSharkHuntPos()
-        if pos then teleportAndFreeze(pos) end
-    end
-end)
-
---// Loop
-task.spawn(function()
-    while task.wait(1) do
-        if farmingAt=="A" and autoFarmA then
-            doFishing()
-        elseif farmingAt=="B" and autoFarmB then
-            if getSharkHuntPos() then
-                doFishing()
-            end
+local MegaToggle = MainTab:CreateToggle({
+    Name = "Farm Megalodon Hunt",
+    CurrentValue = false,
+    Flag = "FarmMegalodon",
+    Callback = function(Value)
+        megaFarm = Value
+        if Value then
+            sharkFarm = false
+            ghostFarm = false
         end
-    end
-end)
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Net = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0").net
-
--- Remotes
-local equipTool = Net:FindFirstChild("RE/EquipToolFromHotbar")
-local chargeRod = Net:FindFirstChild("RF/ChargeFishingRod")
-local startMinigame = Net:FindFirstChild("RF/RequestFishingMinigameStarted")
-local finishFishing = Net:FindFirstChild("RE/FishingCompleted")
-
--- To  Farm A (c nh)
-local farmPos = Vector3.new(-3728.9, -138.8, -952.8)
-
--- Trng thái toggle
-local autoFishing = false
-
--- Hàm teleport ti A và gi yên
-local function teleportToFarmA()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-
-    hrp.CFrame = CFrame.new(farmPos)
-
-    -- Gi yên (fly ng)
-    if hrp:FindFirstChild("BV_Freeze") then
-        hrp.BV_Freeze:Destroy()
-    end
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "BV_Freeze"
-    bv.Velocity = Vector3.new(0,0,0)
-    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    bv.Parent = hrp
-end
-
--- Toggle trong UI Rayfield
-local ToggleFarmA = MainTab:CreateToggle({
-   Name = "Auto Farm (Ghostfinn Rod)",
-   CurrentValue = false,
-   Flag = "AutoFarmA",
-   Callback = function(Value)
-       autoFishing = Value
-       print(" Auto Farm A:", Value and "BT" or "TT")
-       if Value then
-           teleportToFarmA()
-       else
-           -- G ng yên nu tt
-           local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-           if hrp and hrp:FindFirstChild("BV_Freeze") then
-               hrp.BV_Freeze:Destroy()
-           end
-       end
-   end,
+    end,
 })
 
--- Khi cht / respawn thì TP li
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    if autoFishing then
-        teleportToFarmA()
-    end
-end)
-
--- Vòng lp auto câu
-task.spawn(function()
-    while task.wait(1) do
-        if autoFishing then
-            teleportToFarmA()
-
-            -- Quy trình câu cá
-            pcall(function() equipTool:FireServer(1) end)
-            task.wait(0.5)
-
-            local chargeValue = tick() * 1000
-            pcall(function() chargeRod:InvokeServer(chargeValue) end)
-
-            task.wait(2)
-
-            local args = {
-                [1] = math.random(-2, 2),
-                [2] = math.random()
-            }
-            pcall(function() startMinigame:InvokeServer(unpack(args)) end)
-
-            task.wait(5)
-
-            pcall(function() finishFishing:FireServer() end)
+local GhostToggle = MainTab:CreateToggle({
+    Name = "Farm Ghost Shark Hunt",
+    CurrentValue = false,
+    Flag = "FarmGhost",
+    Callback = function(Value)
+        ghostFarm = Value
+        if Value then
+            sharkFarm = false
+            megaFarm = false
         end
-    end
-end)
-
-
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Net = ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_net@0.2.0").net
-
--- Remotes
-local equipTool = Net:FindFirstChild("RE/EquipToolFromHotbar")
-local chargeRod = Net:FindFirstChild("RF/ChargeFishingRod")
-local startMinigame = Net:FindFirstChild("RF/RequestFishingMinigameStarted")
-local finishFishing = Net:FindFirstChild("RE/FishingCompleted")
-
--- Toạ độ Farm A (cố định)
-local farmPos = Vector3.new(3241.9, -1307.3, 1346.5)
-
--- Trạng thái toggle
-local autoFishing = false
-
--- Hàm teleport tới A và giữ yên
-local function teleportToFarmA()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-
-    hrp.CFrame = CFrame.new(farmPos)
-
-    -- Giữ yên (fly đứng)
-    if hrp:FindFirstChild("BV_Freeze") then
-        hrp.BV_Freeze:Destroy()
-    end
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "BV_Freeze"
-    bv.Velocity = Vector3.new(0,0,0)
-    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    bv.Parent = hrp
-end
-
--- Toggle trong UI Rayfield
-local ToggleFarmA = MainTab:CreateToggle({
-   Name = "Auto Farm Enchant",
-   CurrentValue = false,
-   Flag = "AutoFarmA",
-   Callback = function(Value)
-       autoFishing = Value
-       print("🎣 Auto Farm A:", Value and "BẬT" or "TẮT")
-       if Value then
-           teleportToFarmA()
-       else
-           -- Gỡ đứng yên nếu tắt
-           local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-           if hrp and hrp:FindFirstChild("BV_Freeze") then
-               hrp.BV_Freeze:Destroy()
-           end
-       end
-   end,
+    end,
 })
-
--- Khi chết / respawn thì TP lại
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    if autoFishing then
-        teleportToFarmA()
-    end
-end)
-
--- Vòng lặp auto câu
-task.spawn(function()
-    while task.wait(1) do
-        if autoFishing then
-            teleportToFarmA()
-
-            -- Quy trình câu cá
-            pcall(function() equipTool:FireServer(1) end)
-            task.wait(0.5)
-
-            local chargeValue = tick() * 1000
-            pcall(function() chargeRod:InvokeServer(chargeValue) end)
-
-            task.wait(2)
-
-            local args = {
-                [1] = math.random(-2, 2),
-                [2] = math.random()
-            }
-            pcall(function() startMinigame:InvokeServer(unpack(args)) end)
-
-            task.wait(5)
-
-            pcall(function() finishFishing:FireServer() end)
-        end
-    end
-end)
 
 
 local Players = game:GetService("Players")
