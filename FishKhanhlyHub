@@ -98,7 +98,7 @@ task.spawn(function()
             pcall(function() startMinigame:InvokeServer(unpack(args)) end)
 
             -- 3. Skip minigame
-            task.wait(2.8)
+            task.wait(2.9)
             pcall(function() finishFishing:FireServer() end)
 
             -- 4. Chờ 1.2s rồi lặp vòng mới
