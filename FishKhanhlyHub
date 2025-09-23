@@ -296,98 +296,130 @@ local FarmToggle = MainTab:CreateToggle({
    end,
 })
 
+local MainSection = MainTab:CreateSection("Event")
 
--- 📌 Dịch vụ
+-- Farm Toạ Độ (Cấp bậc 2)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
 
--- 🔍 Hàm lấy toạ độ Event
-local function getEventPosition(eventName)
-    local eventFolder = workspace.Props:FindFirstChild(eventName)
-    if eventFolder then
-        -- Nếu có Part cùng tên bên trong thì lấy
-        local part = eventFolder:FindFirstChild(eventName)
-        if part and part:IsA("BasePart") then
-            return part.Position
-        end
-        -- Nếu bản thân nó là Part thì lấy luôn
-        if eventFolder:IsA("BasePart") then
-            return eventFolder.Position
-        end
-        -- Nếu là Model → lấy PrimaryPart
-        if eventFolder:IsA("Model") and eventFolder.PrimaryPart then
-            return eventFolder.PrimaryPart.Position
-        end
-    end
-    return nil
+-- Toạ độ + góc xoay bạn muốn farm
+local FARM_POS = Vector3.new(1601.4, 1.7, -85.4) -- chỉnh theo toạ độ bạn muốn
+local FARM_YAW = 140.6 -- góc quay (theo độ, ví dụ: Đông = 90, Tây = -90)
+
+local farming = false
+local hrp
+
+-- Cập nhật HRP khi respawn
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
 end
 
--- ⚡ Trạng thái Toggle
-local sharkFarm = false
-local megaFarm = false
-local ghostFarm = false
+hrp = getHRP()
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
 
--- 📌 Vòng lặp TP liên tục
+-- Platform dưới chân
+local function createPlatform()
+    local p = workspace:FindFirstChild("FarmPlatform")
+    if not p then
+        p = Instance.new("Part")
+        p.Name = "FarmPlatform"
+        p.Size = Vector3.new(20, 1, 20)
+        p.Anchored = true
+        p.CanCollide = true
+        p.Parent = workspace
+    end
+    p.Position = FARM_POS - Vector3.new(0, 3, 0)
+end
+
+-- TP liên tục (tọa độ + xoay)
 RunService.Heartbeat:Connect(function()
-    if sharkFarm then
-        local pos = getEventPosition("Shark Hunt")
-        if pos then
-            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+    if farming and hrp then
+        -- Nếu có Event (cấp bậc 1) thì bỏ qua farm tọa độ
+        if workspace:FindFirstChild("Shark Hunt") 
+        or workspace:FindFirstChild("Megalodon Hunt")
+        or workspace:FindFirstChild("Ghost Shark Hunt") then
+            return
         end
-    elseif megaFarm then
-        local pos = getEventPosition("Megalodon Hunt")
-        if pos then
-            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-        end
-    elseif ghostFarm then
-        local pos = getEventPosition("Ghost Shark Hunt")
-        if pos then
-            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-        end
+
+        createPlatform()
+        hrp.CFrame = CFrame.new(FARM_POS) * CFrame.Angles(0, math.rad(FARM_YAW), 0)
     end
 end)
 
--- 🎛️ Toggle Rayfield
-local SharkToggle = MainTab:CreateToggle({
-    Name = "Farm Shark Hunt",
-    CurrentValue = false,
-    Flag = "FarmShark",
-    Callback = function(Value)
-        sharkFarm = Value
-        if Value then
-            megaFarm = false
-            ghostFarm = false
-        end
-    end,
+-- 🔥 Toggle Rayfield
+local FarmToggle = MainTab:CreateToggle({
+   Name = "worm hunter",
+   CurrentValue = false,
+   Flag = "FarmToaDo",
+   Callback = function(Value)
+       farming = Value
+   end,
 })
 
-local MegaToggle = MainTab:CreateToggle({
-    Name = "Farm Megalodon Hunt",
-    CurrentValue = false,
-    Flag = "FarmMegalodon",
-    Callback = function(Value)
-        megaFarm = Value
-        if Value then
-            sharkFarm = false
-            ghostFarm = false
-        end
-    end,
-})
+-- Farm Toạ Độ (Cấp bậc 2)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
 
-local GhostToggle = MainTab:CreateToggle({
-    Name = "Farm Ghost Shark Hunt",
-    CurrentValue = false,
-    Flag = "FarmGhost",
-    Callback = function(Value)
-        ghostFarm = Value
-        if Value then
-            sharkFarm = false
-            megaFarm = false
+-- Toạ độ + góc xoay bạn muốn farm
+local FARM_POS = Vector3.new(-320.6, 1.6, 2412.4) -- chỉnh theo toạ độ bạn muốn
+local FARM_YAW = 140.6 -- góc quay (theo độ, ví dụ: Đông = 90, Tây = -90)
+
+local farming = false
+local hrp
+
+-- Cập nhật HRP khi respawn
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+hrp = getHRP()
+player.CharacterAdded:Connect(function(char)
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
+
+-- Platform dưới chân
+local function createPlatform()
+    local p = workspace:FindFirstChild("FarmPlatform")
+    if not p then
+        p = Instance.new("Part")
+        p.Name = "FarmPlatform"
+        p.Size = Vector3.new(20, 1, 20)
+        p.Anchored = true
+        p.CanCollide = true
+        p.Parent = workspace
+    end
+    p.Position = FARM_POS - Vector3.new(0, 3, 0)
+end
+
+-- TP liên tục (tọa độ + xoay)
+RunService.Heartbeat:Connect(function()
+    if farming and hrp then
+        -- Nếu có Event (cấp bậc 1) thì bỏ qua farm tọa độ
+        if workspace:FindFirstChild("Shark Hunt") 
+        or workspace:FindFirstChild("Megalodon Hunt")
+        or workspace:FindFirstChild("Ghost Shark Hunt") then
+            return
         end
-    end,
+
+        createPlatform()
+        hrp.CFrame = CFrame.new(FARM_POS) * CFrame.Angles(0, math.rad(FARM_YAW), 0)
+    end
+end)
+
+-- 🔥 Toggle Rayfield
+local FarmToggle = MainTab:CreateToggle({
+   Name = "Ghost shark",
+   CurrentValue = false,
+   Flag = "FarmToaDo",
+   Callback = function(Value)
+       farming = Value
+   end,
 })
 
 
