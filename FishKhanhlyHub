@@ -1301,6 +1301,65 @@ local Toggle = StigTab:CreateToggle({
 
 local MainSection = StigTab:CreateSection("settings 🛠️")
 
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local antiAfkConnection
+local notifyLoop -- vòng lặp thông báo
+
+-- Hàm gửi thông báo
+local function notify(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 5
+    })
+end
+
+local Toggle = StigTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK_Toggle", 
+    Callback = function(Value)
+        if Value then
+            -- Bật anti AFK
+            antiAfkConnection = player.Idled:Connect(function()
+                VirtualUser:Button2Down(Vector2.new(0,0))
+                task.wait(0.5)
+                VirtualUser:Button2Up(Vector2.new(0,0))
+            end)
+
+            -- Thông báo bật
+            notify("Anti AFK", "Đã bật thành công!", 5)
+
+            -- Bắt đầu vòng lặp thông báo 20p/lần
+            notifyLoop = task.spawn(function()
+                while task.wait(1200) do -- 1200s = 20 phút
+                    notify("Anti AFK", "Vẫn đang hoạt động", 5)
+                end
+            end)
+
+        else
+            -- Tắt anti AFK
+            if antiAfkConnection then
+                antiAfkConnection:Disconnect()
+                antiAfkConnection = nil
+            end
+
+            -- Dừng vòng lặp thông báo
+            if notifyLoop then
+                task.cancel(notifyLoop)
+                notifyLoop = nil
+            end
+
+            -- Thông báo tắt
+            notify("Anti AFK", "Đã tắt", 5)
+        end
+    end,
+})
+
 local AntiLagLevel = "Normal"
 
 local Dropdown = StigTab:CreateDropdown({
