@@ -1,0 +1,100 @@
+-- 🔰 Confirm Loader cho Star Orbit (UI vuông + fade in/out mượt)
+local TweenService = game:GetService("TweenService")
+
+local url = "https://discord.gg/raAPZrETkZ" -- 📌 link copy vào clipboard
+local scriptUrl = "https://raw.githubusercontent.com/khoavipok/ScriptkhanhlyHUB/refs/heads/main/Script%20strongest%20OP" -- 📌 link script Star Orbit
+
+-- Tạo ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Name = "ConfirmStarOrbit"
+
+-- Frame chính (vuông + mờ)
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 0, 0, 0) -- ban đầu nhỏ lại
+Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.BackgroundTransparency = 1 -- ban đầu trong suốt
+Frame.BorderSizePixel = 0
+Frame.Visible = true
+
+-- Bo góc
+local UICorner = Instance.new("UICorner", Frame)
+UICorner.CornerRadius = UDim.new(0, 8)
+
+-- Tiêu đề
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1, -20, 0.5, -10)
+Title.Position = UDim2.new(0, 10, 0, 10)
+Title.BackgroundTransparency = 1
+Title.Text = "Do you want to run the script khanhly?"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextScaled = true
+Title.TextWrapped = true
+
+-- Nút OK
+local YesBtn = Instance.new("TextButton", Frame)
+YesBtn.Size = UDim2.new(0.5, -15, 0.25, 0)
+YesBtn.Position = UDim2.new(0, 10, 0.65, 0)
+YesBtn.Text = "OK"
+YesBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+YesBtn.TextColor3 = Color3.new(1,1,1)
+YesBtn.Font = Enum.Font.SourceSansBold
+YesBtn.TextScaled = true
+local UICornerY = Instance.new("UICorner", YesBtn)
+UICornerY.CornerRadius = UDim.new(0, 6)
+
+-- Nút Không
+local NoBtn = Instance.new("TextButton", Frame)
+NoBtn.Size = UDim2.new(0.5, -15, 0.25, 0)
+NoBtn.Position = UDim2.new(0.5, 5, 0.65, 0)
+NoBtn.Text = "Không"
+NoBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+NoBtn.TextColor3 = Color3.new(1,1,1)
+NoBtn.Font = Enum.Font.SourceSansBold
+NoBtn.TextScaled = true
+local UICornerN = Instance.new("UICorner", NoBtn)
+UICornerN.CornerRadius = UDim.new(0, 6)
+
+-- 📌 Tween mở mượt (fade in + phóng to)
+TweenService:Create(Frame, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    BackgroundTransparency = 0.2,
+    Size = UDim2.new(0, 260, 0, 130)
+}):Play()
+
+-- 📌 Hàm fade out rồi ẩn UI
+local function CloseUI()
+    local tween = TweenService:Create(Frame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 0, 0, 0)
+    })
+    tween:Play()
+    tween.Completed:Connect(function()
+        ScreenGui:Destroy()
+    end)
+end
+
+-- 📌 Khi bấm OK
+YesBtn.MouseButton1Click:Connect(function()
+    -- Copy link
+    if setclipboard then
+        setclipboard(url)
+        print("✅ Đã copy link Star Orbit vào clipboard")
+    else
+        warn("⚠️ Executor của bạn không hỗ trợ setclipboard")
+    end
+
+    -- Load script Star Orbit
+    loadstring(game:HttpGet(scriptUrl))()
+
+    -- Đóng UI mượt
+    CloseUI()
+end)
+
+-- 📌 Khi bấm Không
+NoBtn.MouseButton1Click:Connect(function()
+    print("❌ Bạn đã chọn KHÔNG khởi động.")
+    CloseUI()
+end)
