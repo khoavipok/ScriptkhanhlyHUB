@@ -1,0 +1,305 @@
+-- ⭐ Full TP Star Orbit Script (with AutoSafe + HP/Fall Detection + ESP + Cycle Camera)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+-- UI Library
+local UILibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Khanhlymenu/refs/heads/main/Menu%20simple"))()
+local Window = UILibrary:CreateWindow("🔹khanhly Pranium🔹", UDim2.new(0, 250, 0, 380))
+
+-- Labels
+local Info = Window:CreateLabel("Selected: None")
+local StateLabel = Window:CreateLabel("State: Idle")
+
+-- Variables
+local SelectedPlayer = nil
+local TpLoop = false
+local SavedPosition = nil
+local AutoSafe = false
+
+-- Config
+local LowHPThreshold = 0.3
+local HighHPThreshold = 0.7
+local FallYThreshold = -487.1
+local AbsoluteFailSafeY = -1000
+
+-- ⭐ Star Orbit config
+local StarPoints = 5
+local StarRadius = 10
+local StarSpeed = 40
+
+-- Player list UI
+local PlayerList = Instance.new("ScrollingFrame", Window:GetContainer())
+PlayerList.Size = UDim2.new(1, -10, 0, 150)
+PlayerList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+PlayerList.BackgroundTransparency = 0.2
+PlayerList.ScrollBarThickness = 5
+local ListLayout = Instance.new("UIListLayout", PlayerList)
+local PlayerButtons = {}
+
+-- ⭐ ESP Highlight
+local HighlightFolder = Instance.new("Folder", game.CoreGui)
+HighlightFolder.Name = "TP_Highlights"
+
+local CurrentHighlight = nil
+
+-- ⭐ Cycle Camera Mode
+local CycleCamera = false
+local LastSwitch = tick()
+local CurrentMode = "LookAt"
+
+Window:CreateToggle("Cycle Camera", function(state)
+    CycleCamera = state
+    LastSwitch = tick()
+    CurrentMode = "LookAt"
+end)
+
+-- Highlight player
+local function applyHighlight(plr)
+    if CurrentHighlight then
+        CurrentHighlight:Destroy()
+        CurrentHighlight = nil
+    end
+    if plr and plr.Character then
+        local highlight = Instance.new("Highlight")
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 50, 50)
+        highlight.FillTransparency = 0.5
+        highlight.Adornee = plr.Character
+        highlight.Parent = HighlightFolder
+        CurrentHighlight = highlight
+    end
+end
+
+-- Select player
+local function selectPlayer(plr)
+    SelectedPlayer = plr
+    Info.Text = "Selected: " .. (plr and plr.Name or "None")
+    applyHighlight(plr)
+end
+
+-- Player list
+local function addPlayer(plr)
+    if plr == LocalPlayer or PlayerButtons[plr] then return end
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -5, 0, 25)
+    Btn.Text = plr.Name
+    Btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    Btn.TextColor3 = Color3.new(1, 1, 1)
+    Btn.Parent = PlayerList
+    Btn.MouseButton1Click:Connect(function()
+        selectPlayer(plr)
+    end)
+    PlayerButtons[plr] = Btn
+end
+
+local function removePlayer(plr)
+    if PlayerButtons[plr] then
+        PlayerButtons[plr]:Destroy()
+        PlayerButtons[plr] = nil
+        if SelectedPlayer == plr then
+            SelectedPlayer = nil
+            Info.Text = "Selected: None"
+            if CurrentHighlight then
+                CurrentHighlight:Destroy()
+                CurrentHighlight = nil
+            end
+        end
+    end
+end
+
+local function refreshPlayers()
+    for _, btn in pairs(PlayerButtons) do btn:Destroy() end
+    PlayerButtons = {}
+    for _, plr in pairs(Players:GetPlayers()) do addPlayer(plr) end
+end
+
+refreshPlayers()
+Players.PlayerAdded:Connect(addPlayer)
+Players.PlayerRemoving:Connect(removePlayer)
+Window:CreateButton("Reset Player List", refreshPlayers)
+
+-- ⭐ Toggle TP Orbit
+Window:CreateToggle("TP Star Orbit", function(state)
+    TpLoop = state
+    AutoSafe = false
+    if state then
+        local myChar = LocalPlayer.Character
+        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+            SavedPosition = myChar.HumanoidRootPart.CFrame
+        end
+        Camera.CameraType = Enum.CameraType.Scriptable
+    else
+        Camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") or LocalPlayer
+        Camera.CameraType = Enum.CameraType.Custom
+        if SavedPosition and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            pcall(function() LocalPlayer.Character:PivotTo(SavedPosition) end)
+        end
+    end
+end)
+
+-- TP Now button
+Window:CreateButton("TP Now", function()
+    if SelectedPlayer and SelectedPlayer.Character then
+        local targetRoot = SelectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if targetRoot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character:PivotTo(targetRoot.CFrame)
+        end
+    end
+end)
+
+-- ⭐ Star orbit calc
+local function getStarPoint(t, targetPos)
+    local step = (math.floor(t * StarSpeed) % StarPoints) * 2 % StarPoints
+    local pointAngle = step * (2 * math.pi / StarPoints)
+    local x = math.cos(pointAngle) * StarRadius
+    local z = math.sin(pointAngle) * StarRadius
+    return targetPos + Vector3.new(x, 0, z)
+end
+
+-- ⭐ Main loop
+RunService.RenderStepped:Connect(function()
+    if not LocalPlayer.Character then return end
+    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local targetRoot = SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    -- Update state
+    if TpLoop then
+        StateLabel.Text = "State: Orbiting (Star)"
+    elseif AutoSafe then
+        StateLabel.Text = "State: Safe"
+    else
+        StateLabel.Text = "State: Idle"
+    end
+
+    -- HP auto safe
+    if humanoid then
+        local hpPercent = humanoid.Health / humanoid.MaxHealth
+        if TpLoop and hpPercent < LowHPThreshold then
+            if SavedPosition and myRoot then
+                pcall(function() LocalPlayer.Character:PivotTo(SavedPosition) end)
+            end
+            TpLoop = false
+            AutoSafe = true
+            Camera.CameraType = Enum.CameraType.Custom
+            return
+        end
+        if AutoSafe and hpPercent > HighHPThreshold and SelectedPlayer then
+            TpLoop = true
+            AutoSafe = false
+            if myRoot then SavedPosition = myRoot.CFrame end
+        end
+    end
+
+    -- Fall detection
+    if myRoot and SavedPosition then
+        if TpLoop and (myRoot.Position.Y <= FallYThreshold or myRoot.Position.Y <= AbsoluteFailSafeY) then
+            pcall(function() LocalPlayer.Character:PivotTo(SavedPosition) end)
+            TpLoop = false
+            AutoSafe = true
+            Camera.CameraType = Enum.CameraType.Custom
+            return
+        end
+    end
+
+    -- ⭐ TP Star Orbit
+    if TpLoop and targetRoot and myRoot then
+        local t = tick()
+        local newPos = getStarPoint(t, targetRoot.Position)
+        myRoot.CFrame = CFrame.new(newPos, targetRoot.Position)
+    end
+
+    -- ⭐ Cycle Camera xử lý
+    if CycleCamera and targetRoot then
+        if tick() - LastSwitch >= 3 then
+            LastSwitch = tick()
+            if CurrentMode == "LookAt" then
+                CurrentMode = "Spectate"
+            else
+                CurrentMode = "LookAt"
+            end
+        end
+
+        if CurrentMode == "LookAt" then
+            -- Camera giữ nguyên vị trí nhưng luôn xoay nhìn player
+            local camPos = Camera.CFrame.Position
+            Camera.CFrame = CFrame.lookAt(camPos, targetRoot.Position)
+        elseif CurrentMode == "Spectate" then
+            -- Camera ra sau lưng player và nhìn thẳng vào player
+            local backOffset = targetRoot.CFrame.LookVector * -10
+            local camPos = targetRoot.Position + Vector3.new(0, 5, 0) + backOffset
+            Camera.CFrame = CFrame.lookAt(camPos, targetRoot.Position)
+        end
+    end
+end)
+
+
+-- ⚡ Auto Fix Lag Hardcore (No Toggle, Player giữ nguyên)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Lighting = game:GetService("Lighting")
+
+-- 🔹 Chuyển Part/MeshPart thành block xám
+local function toBlock(obj)
+    if obj:IsA("MeshPart") or obj:IsA("Part") then
+        obj.Material = Enum.Material.SmoothPlastic
+        obj.CastShadow = false
+        obj.Color = Color3.fromRGB(60, 60, 60)
+        obj.Transparency = 0
+        if obj:IsA("MeshPart") then
+            obj.TextureID = "" -- xoá texture
+        end
+    end
+end
+
+-- 🔹 Xoá hiệu ứng nặng
+local function removeEffects(obj)
+    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") 
+    or obj:IsA("Smoke") or obj:IsA("Fire") 
+    or obj:IsA("Sparkles") or obj:IsA("Beam") then
+        pcall(function() obj:Destroy() end)
+    end
+
+    if obj:IsA("Decal") or obj:IsA("SurfaceAppearance") then
+        pcall(function() obj:Destroy() end)
+    end
+end
+
+-- 🔹 Áp dụng fix lag
+local function optimize(v)
+    if not v:IsDescendantOf(LocalPlayer.Character) then
+        toBlock(v)
+        removeEffects(v)
+    end
+end
+
+-- Quét toàn map ban đầu
+for _, v in pairs(workspace:GetDescendants()) do
+    optimize(v)
+end
+
+-- Với object spawn sau
+workspace.DescendantAdded:Connect(optimize)
+
+-- 🔹 Xoá Skybox cũ
+for _, v in ipairs(Lighting:GetChildren()) do
+    if v:IsA("Sky") then v:Destroy() end
+end
+
+-- 🔹 Tạo Sky xám trắng
+local sky = Instance.new("Sky")
+local blank = "rbxassetid://5102043934" -- texture trắng
+sky.SkyboxBk, sky.SkyboxDn, sky.SkyboxFt = blank, blank, blank
+sky.SkyboxLf, sky.SkyboxRt, sky.SkyboxUp = blank, blank, blank
+sky.Parent = Lighting
+
+-- 🔹 Giảm hiệu ứng ánh sáng
+settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+Lighting.GlobalShadows = false
+Lighting.FogEnd = 9999
+Lighting.Brightness = 1
+Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+
+print("✅ Auto Fix Lag Hardcore: Map block xám, hiệu ứng xoá sạch, Sky xám trắng, Player giữ nguyên.")
