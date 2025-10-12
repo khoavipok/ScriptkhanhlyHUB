@@ -373,9 +373,10 @@ local function createSeedToggle(tab, seedName)
     })
 end
 
--- Danh sách tất cả seeds (✅ đã fix dấu phẩy)
+-- Danh sách tất cả seeds (✅ đã thêm King Limone Seed ngay sau Mango Seed)
 local seeds = {
     "Mango Seed",
+    "King Limone Seed", -- ✅ thêm vào đây
     "Shroombino Seed",     
     "Tomatrio Seed",
     "Mr Carrot Seed",
