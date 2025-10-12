@@ -515,29 +515,76 @@ BgTab:Toggle({
     end
 })
 
--- 🟣 Auto TurnIn Toggle
+-- ⚙️ Biến điều khiển
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+local running = false
+
+-- 📍 Tọa độ mục tiêu
+local targetPos = Vector3.new(-157.1, 13.7, 1025.8)
+
+-- 🧠 Hàm Auto Talk
+local function autoTalkLoop()
+    task.spawn(function()
+        while running do
+            local talkPart = workspace:FindFirstChild("ScriptedMap")
+            if talkPart then
+                talkPart = talkPart:FindFirstChild("Event")
+                if talkPart then
+                    talkPart = talkPart:FindFirstChild("EventRewards")
+                    if talkPart then
+                        talkPart = talkPart:FindFirstChild("TalkPart")
+                        if talkPart then
+                            local prompt = talkPart:FindFirstChild("ProximityPrompt")
+                            if prompt then
+                                fireproximityprompt(prompt)
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.5) -- Talk liên tục mỗi 0.5s
+        end
+    end)
+end
+
+-- 🧭 Hàm Auto TP mỗi 10s
+local function autoTPLoop()
+    task.spawn(function()
+        while running do
+            root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+            WindUI:Notify({
+                Title = "TP thành công!",
+                Content ="done 1 minute",
+                Duration = 2,
+            })
+            task.wait(60) -- 10 giây mới TP lại 1 lần
+        end
+    end)
+end
+
+-- 🔘 Toggle kết hợp
 BgTab:Toggle({
-    Title = "Auto TurnIn",
-    Desc = "Tự động gửi remote TurnIn",
+    Title = "Event Tomade torelli",
+    Desc = "Auto win Event",
     Default = false,
     Callback = function(state)
-        print("Auto TurnIn: " .. tostring(state))
-
+        running = state
         if state then
-            -- Khi bật
-            getgenv().AutoTurnIn = true
-            task.spawn(function()
-                while getgenv().AutoTurnIn do
-                    local args = {
-                        [1] = "TurnIn"
-                    }
-                    game:GetService("ReplicatedStorage").Remotes.Events.Prison.Interact:FireServer(unpack(args))
-                    task.wait(1) -- chỉnh tốc độ gọi (1 giây/lần)
-                end
-            end)
+            autoTalkLoop()
+            autoTPLoop()
+            WindUI:Notify({
+                Title = "✅ Đã bật chế độ tự động",
+                Content = "ok.",
+                Duration = 3,
+            })
         else
-            -- Khi tắt
-            getgenv().AutoTurnIn = false
+            WindUI:Notify({
+                Title = "🛑 Đã tắt chế độ tự động",
+                Content = "Off.",
+                Duration = 3,
+            })
         end
     end,
 })
