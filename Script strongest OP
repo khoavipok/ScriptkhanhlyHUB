@@ -235,83 +235,108 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ⚙️ Phát hiện người chơi khác bật "Death Counter"
+-- ⚙️ Phát hiện người chơi có & bật Death Counter
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Tạo label trên đầu người chơi
-local function addESPText(player, text, color)
+-- 🧱 Hàm tạo hoặc cập nhật label
+local function updateESP(player, text, color)
 	local char = player.Character
 	if not char then return end
 	local head = char:FindFirstChild("Head")
 	if not head then return end
 
-	if head:FindFirstChild("DeathESP") then
-		head.DeathESP:Destroy()
+	local billboard = head:FindFirstChild("DeathESP")
+	if not billboard then
+		billboard = Instance.new("BillboardGui")
+		billboard.Name = "DeathESP"
+		billboard.Adornee = head
+		billboard.Size = UDim2.new(0, 200, 0, 50)
+		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+		billboard.AlwaysOnTop = true
+
+		local label = Instance.new("TextLabel")
+		label.Name = "Label"
+		label.Size = UDim2.new(1, 0, 1, 0)
+		label.BackgroundTransparency = 1
+		label.TextScaled = true
+		label.Font = Enum.Font.GothamBold
+		label.TextStrokeTransparency = 0
+		label.Parent = billboard
+
+		billboard.Parent = head
 	end
 
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "DeathESP"
-	billboard.Adornee = head
-	billboard.Size = UDim2.new(0, 200, 0, 50)
-	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-	billboard.AlwaysOnTop = true
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 1, 0)
-	label.BackgroundTransparency = 1
-	label.Text = text
-	label.TextColor3 = color
-	label.TextStrokeTransparency = 0
-	label.TextScaled = true
-	label.Font = Enum.Font.GothamBold
-	label.Parent = billboard
-
-	billboard.Parent = head
-
-	task.delay(10, function()
-		if billboard and billboard.Parent then
-			billboard:Destroy()
-		end
-	end)
+	local label = billboard:FindFirstChild("Label")
+	if label then
+		label.Text = text
+		label.TextColor3 = color
+	end
 end
 
--- Theo dõi người chơi
-local function watchPlayer(plr)
+-- 🧩 Hàm theo dõi một người chơi
+local function setupWatcher(plr)
 	if plr == LocalPlayer then return end
 
-	plr.CharacterAdded:Connect(function(char)
+	local function trackCharacter(char)
 		local backpack = plr:WaitForChild("Backpack")
 
-		-- Theo dõi việc tool được chuyển ra tay
-		local function checkTool(tool)
-			if tool.Name == "Death Counter" then
-				tool.AncestryChanged:Connect(function(_, parent)
-					-- Khi tool nằm trong Character (bật)
-					if parent == char then
-						addESPText(plr, "ĐÃ BẬT DEATH COUNTER", Color3.fromRGB(255, 50, 50))
-					end
-				end)
+		local function hasDeathCounter()
+			return backpack:FindFirstChild("Death Counter") or char:FindFirstChild("Death Counter")
+		end
+
+		local function startTracking()
+			if not hasDeathCounter() then return end
+
+			-- Ban đầu: hiện "chưa bật"
+			updateESP(plr, "CHƯA BẬT:not turned,on DEATH COUNTER", Color3.fromRGB(50, 255, 50))
+
+			-- Khi equip tool
+			local function onToolAdded(tool)
+				if tool.Name == "Death Counter" then
+					tool.AncestryChanged:Connect(function(_, parent)
+						if parent == char then
+							updateESP(plr, "turned on DEATH COUNTER!!", Color3.fromRGB(255, 50, 50))
+							task.delay(10, function()
+								if hasDeathCounter() then
+									updateESP(plr, "CHƯA BẬT DEATH COUNTER", Color3.fromRGB(50, 255, 50))
+								end
+							end)
+						end
+					end)
+				end
+			end
+
+			for _, tool in ipairs(char:GetChildren()) do onToolAdded(tool) end
+			for _, tool in ipairs(backpack:GetChildren()) do onToolAdded(tool) end
+
+			backpack.ChildAdded:Connect(onToolAdded)
+			char.ChildAdded:Connect(onToolAdded)
+		end
+
+		-- Theo dõi khi họ có Death Counter (vì có thể spawn sau)
+		local function checkForTool()
+			if hasDeathCounter() then
+				startTracking()
 			end
 		end
 
-		-- Theo dõi các tool có sẵn
-		for _, tool in pairs(backpack:GetChildren()) do
-			checkTool(tool)
-		end
+		checkForTool()
+		backpack.ChildAdded:Connect(checkForTool)
+		char.ChildAdded:Connect(checkForTool)
+	end
 
-		-- Theo dõi tool mới thêm vào
-		backpack.ChildAdded:Connect(checkTool)
-	end)
+	if plr.Character then
+		trackCharacter(plr.Character)
+	end
+	plr.CharacterAdded:Connect(trackCharacter)
 end
 
--- Theo dõi toàn bộ người chơi hiện tại
-for _, plr in pairs(Players:GetPlayers()) do
-	watchPlayer(plr)
+-- ⚡ Gắn theo dõi tất cả người chơi
+for _, plr in ipairs(Players:GetPlayers()) do
+	setupWatcher(plr)
 end
-
--- Theo dõi người chơi mới vào
-Players.PlayerAdded:Connect(watchPlayer)
+Players.PlayerAdded:Connect(setupWatcher)
 
 
 -- ⚡ Auto Fix Lag Hardcore (No Toggle, Player giữ nguyên)
