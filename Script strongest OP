@@ -235,6 +235,84 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- ⚙️ Phát hiện người chơi khác bật "Death Counter"
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Tạo label trên đầu người chơi
+local function addESPText(player, text, color)
+	local char = player.Character
+	if not char then return end
+	local head = char:FindFirstChild("Head")
+	if not head then return end
+
+	if head:FindFirstChild("DeathESP") then
+		head.DeathESP:Destroy()
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DeathESP"
+	billboard.Adornee = head
+	billboard.Size = UDim2.new(0, 200, 0, 50)
+	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+	billboard.AlwaysOnTop = true
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = billboard
+
+	billboard.Parent = head
+
+	task.delay(10, function()
+		if billboard and billboard.Parent then
+			billboard:Destroy()
+		end
+	end)
+end
+
+-- Theo dõi người chơi
+local function watchPlayer(plr)
+	if plr == LocalPlayer then return end
+
+	plr.CharacterAdded:Connect(function(char)
+		local backpack = plr:WaitForChild("Backpack")
+
+		-- Theo dõi việc tool được chuyển ra tay
+		local function checkTool(tool)
+			if tool.Name == "Death Counter" then
+				tool.AncestryChanged:Connect(function(_, parent)
+					-- Khi tool nằm trong Character (bật)
+					if parent == char then
+						addESPText(plr, "ĐÃ BẬT DEATH COUNTER", Color3.fromRGB(255, 50, 50))
+					end
+				end)
+			end
+		end
+
+		-- Theo dõi các tool có sẵn
+		for _, tool in pairs(backpack:GetChildren()) do
+			checkTool(tool)
+		end
+
+		-- Theo dõi tool mới thêm vào
+		backpack.ChildAdded:Connect(checkTool)
+	end)
+end
+
+-- Theo dõi toàn bộ người chơi hiện tại
+for _, plr in pairs(Players:GetPlayers()) do
+	watchPlayer(plr)
+end
+
+-- Theo dõi người chơi mới vào
+Players.PlayerAdded:Connect(watchPlayer)
+
 
 -- ⚡ Auto Fix Lag Hardcore (No Toggle, Player giữ nguyên)
 local Players = game:GetService("Players")
