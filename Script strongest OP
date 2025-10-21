@@ -235,108 +235,125 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ⚙️ Phát hiện người chơi có & bật Death Counter
+
+-- 💀 Death Counter Detector (v2 - có chờ load map)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local TOOL_NAME = "Death Counter"
 
--- 🧱 Hàm tạo hoặc cập nhật label
-local function updateESP(player, text, color)
+-- 🕐 Hiện thông báo chờ load trên màn hình
+local function showLoadingScreen(seconds)
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "DeathCounterLoading"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 0.3
+	label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Text = "🔍 Đang kiểm tra người chơi... (" .. seconds .. "s)"
+	label.Parent = screenGui
+
+	-- Đếm ngược
+	for i = seconds - 1, 0, -1 do
+		task.wait(1)
+		label.Text = "🔍 Đang kiểm tra người chơi... (" .. i .. "s)"
+	end
+
+	-- Xóa thông báo
+	screenGui:Destroy()
+end
+
+-- 🧠 Hiện thông báo trên đầu người chơi
+local function showESP(player, text, color)
 	local char = player.Character
 	if not char then return end
 	local head = char:FindFirstChild("Head")
 	if not head then return end
 
-	local billboard = head:FindFirstChild("DeathESP")
-	if not billboard then
-		billboard = Instance.new("BillboardGui")
-		billboard.Name = "DeathESP"
-		billboard.Adornee = head
-		billboard.Size = UDim2.new(0, 200, 0, 50)
-		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-		billboard.AlwaysOnTop = true
-
-		local label = Instance.new("TextLabel")
-		label.Name = "Label"
-		label.Size = UDim2.new(1, 0, 1, 0)
-		label.BackgroundTransparency = 1
-		label.TextScaled = true
-		label.Font = Enum.Font.GothamBold
-		label.TextStrokeTransparency = 0
-		label.Parent = billboard
-
-		billboard.Parent = head
+	if head:FindFirstChild("DeathESP") then
+		head.DeathESP:Destroy()
 	end
 
-	local label = billboard:FindFirstChild("Label")
-	if label then
-		label.Text = text
-		label.TextColor3 = color
-	end
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DeathESP"
+	billboard.Adornee = head
+	billboard.Size = UDim2.new(0, 200, 0, 50)
+	billboard.StudsOffset = Vector3.new(0, 3, 0)
+	billboard.AlwaysOnTop = true
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = billboard
+
+	billboard.Parent = head
+
+	task.delay(10, function()
+		if billboard and billboard.Parent then
+			billboard:Destroy()
+		end
+	end)
 end
 
--- 🧩 Hàm theo dõi một người chơi
-local function setupWatcher(plr)
-	if plr == LocalPlayer then return end
+-- 🔎 Theo dõi trạng thái Death Counter
+local function trackPlayer(player)
+	task.spawn(function()
+		local lastState = nil
+		while player.Parent do
+			local hasTool = false
+			local backpack = player:FindFirstChild("Backpack")
+			local character = player.Character
 
-	local function trackCharacter(char)
-		local backpack = plr:WaitForChild("Backpack")
+			if backpack and backpack:FindFirstChild(TOOL_NAME) then
+				hasTool = true
+			elseif character and character:FindFirstChild(TOOL_NAME) then
+				hasTool = true
+			end
 
-		local function hasDeathCounter()
-			return backpack:FindFirstChild("Death Counter") or char:FindFirstChild("Death Counter")
-		end
-
-		local function startTracking()
-			if not hasDeathCounter() then return end
-
-			-- Ban đầu: hiện "chưa bật"
-			updateESP(plr, "CHƯA BẬT:not turned,on DEATH COUNTER", Color3.fromRGB(50, 255, 50))
-
-			-- Khi equip tool
-			local function onToolAdded(tool)
-				if tool.Name == "Death Counter" then
-					tool.AncestryChanged:Connect(function(_, parent)
-						if parent == char then
-							updateESP(plr, "turned on DEATH COUNTER!!", Color3.fromRGB(255, 50, 50))
-							task.delay(10, function()
-								if hasDeathCounter() then
-									updateESP(plr, "CHƯA BẬT DEATH COUNTER", Color3.fromRGB(50, 255, 50))
-								end
-							end)
-						end
-					end)
+			if hasTool ~= lastState then
+				lastState = hasTool
+				if hasTool then
+					showESP(player, "🟢 CHƯA BẬT DEATH COUNTER", Color3.fromRGB(0, 255, 0))
+				else
+					showESP(player, "🔴 ĐÃ BẬT DEATH COUNTER", Color3.fromRGB(255, 0, 0))
 				end
 			end
 
-			for _, tool in ipairs(char:GetChildren()) do onToolAdded(tool) end
-			for _, tool in ipairs(backpack:GetChildren()) do onToolAdded(tool) end
-
-			backpack.ChildAdded:Connect(onToolAdded)
-			char.ChildAdded:Connect(onToolAdded)
+			task.wait(1.5)
 		end
-
-		-- Theo dõi khi họ có Death Counter (vì có thể spawn sau)
-		local function checkForTool()
-			if hasDeathCounter() then
-				startTracking()
-			end
-		end
-
-		checkForTool()
-		backpack.ChildAdded:Connect(checkForTool)
-		char.ChildAdded:Connect(checkForTool)
-	end
-
-	if plr.Character then
-		trackCharacter(plr.Character)
-	end
-	plr.CharacterAdded:Connect(trackCharacter)
+	end)
 end
 
--- ⚡ Gắn theo dõi tất cả người chơi
-for _, plr in ipairs(Players:GetPlayers()) do
-	setupWatcher(plr)
+-- 🧩 Chờ load map trước khi bắt đầu quét
+task.spawn(function()
+	showLoadingScreen(10) -- đếm ngược 7 giây
+end)
+
+-- 🧍 Theo dõi toàn bộ người chơi
+task.wait(7) -- chờ load trước khi bắt đầu
+for _, plr in pairs(Players:GetPlayers()) do
+	if plr ~= LocalPlayer then
+		trackPlayer(plr)
+	end
 end
-Players.PlayerAdded:Connect(setupWatcher)
+
+Players.PlayerAdded:Connect(function(plr)
+	if plr ~= LocalPlayer then
+		trackPlayer(plr)
+	end
+end)
 
 
 -- ⚡ Auto Fix Lag Hardcore (No Toggle, Player giữ nguyên)
