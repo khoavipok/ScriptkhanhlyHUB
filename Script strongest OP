@@ -257,13 +257,13 @@ local function showLoadingScreen(seconds)
 	label.TextStrokeTransparency = 0
 	label.TextScaled = true
 	label.Font = Enum.Font.GothamBold
-	label.Text = "🔍 Đang kiểm tra người chơi... (" .. seconds .. "s)"
+	label.Text = "🔍 checking player... (" .. seconds .. "s)"
 	label.Parent = screenGui
 
 	-- Đếm ngược
 	for i = seconds - 1, 0, -1 do
 		task.wait(1)
-		label.Text = "🔍 Đang kiểm tra người chơi... (" .. i .. "s)"
+		label.Text = "🔍 checking player... (" .. i .. "s)"
 	end
 
 	-- Xóa thông báo
@@ -325,9 +325,9 @@ local function trackPlayer(player)
 			if hasTool ~= lastState then
 				lastState = hasTool
 				if hasTool then
-					showESP(player, "🟢 CHƯA BẬT DEATH COUNTER", Color3.fromRGB(0, 255, 0))
+					showESP(player, "🟢 CHƯA BẬT / not turned on DEATH COUNTER", Color3.fromRGB(0, 255, 0))
 				else
-					showESP(player, "🔴 ĐÃ BẬT DEATH COUNTER", Color3.fromRGB(255, 0, 0))
+					showESP(player, "🔴 turned on / đã bật DEATH COUNTER", Color3.fromRGB(255, 0, 0))
 				end
 			end
 
@@ -342,7 +342,7 @@ task.spawn(function()
 end)
 
 -- 🧍 Theo dõi toàn bộ người chơi
-task.wait(7) -- chờ load trước khi bắt đầu
+task.wait(5) -- chờ load trước khi bắt đầu
 for _, plr in pairs(Players:GetPlayers()) do
 	if plr ~= LocalPlayer then
 		trackPlayer(plr)
