@@ -515,76 +515,199 @@ BgTab:Toggle({
     end
 })
 
--- ⚙️ Biến điều khiển
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local root = character:WaitForChild("HumanoidRootPart")
-local running = false
 
--- 📍 Tọa độ mục tiêu
-local targetPos = Vector3.new(-157.1, 13.7, 1025.8)
+-- Toggle auto EventPlatforms
+BgTab:Toggle({
+    Title = "Auto Event shiny card pack",
+    Desc = "auto farm pranium",
+    Default = false,
+    Callback = function(state)
+        local StarterGui = game:GetService("StarterGui")
+        local function Notify(title, text)
+            StarterGui:SetCore("SendNotification", {
+                Title = title,
+                Text = text,
+                Duration = 3, -- thời gian hiển thị
+            })
+        end
 
--- 🧠 Hàm Auto Talk
-local function autoTalkLoop()
-    task.spawn(function()
-        while running do
-            local talkPart = workspace:FindFirstChild("ScriptedMap")
-            if talkPart then
-                talkPart = talkPart:FindFirstChild("Event")
-                if talkPart then
-                    talkPart = talkPart:FindFirstChild("EventRewards")
-                    if talkPart then
-                        talkPart = talkPart:FindFirstChild("TalkPart")
-                        if talkPart then
-                            local prompt = talkPart:FindFirstChild("ProximityPrompt")
-                            if prompt then
-                                fireproximityprompt(prompt)
+        Notify("Auto EventPlatforms", state and "✅ ON" or "🛑 OFF")
+
+        if not state then
+            _G.EventAuto = false
+            return
+        end
+
+        _G.EventAuto = true
+
+        local Players = game:GetService("Players")
+        local player = Players.LocalPlayer
+        local char = player.Character or player.CharacterAdded:Wait()
+        local root = char:WaitForChild("HumanoidRootPart")
+        local plot = workspace.Plots["1"].EventPlatforms
+
+        -- Tọa độ chính xác
+        local platformPositions = {
+            ["-4"] = Vector3.new(-221.7, 14.4, 993.8),
+            ["-3"] = Vector3.new(-222.8, 14.4, 983.8),
+            ["-2"] = Vector3.new(-222.4, 14.4, 974.6),
+            ["-1"] = Vector3.new(-221.8, 14.4, 963.5),
+        }
+
+        -- Hàm tìm tool trùng tên pet
+        local function findToolByPetName(petName)
+            local backpack = player:WaitForChild("Backpack")
+            for _, tool in ipairs(backpack:GetChildren()) do
+                if string.find(tool.Name, petName) then
+                    return tool
+                end
+            end
+            return nil
+        end
+
+        -- Hàm teleport
+        local function teleportToPlatformID(id)
+            local pos = platformPositions[id]
+            if pos then
+                root.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                Notify("TP Thành công", "Đến Platform " .. id)
+            end
+        end
+
+        -- Hàm kích hoạt ProximityPrompt
+        local function triggerPrompt(prompt)
+            if fireproximityprompt then
+                fireproximityprompt(prompt)
+            else
+                Notify("⚠️ error", "Executor không hỗ trợ fireproximityprompt")
+            end
+        end
+
+        -- Vòng lặp chính auto
+        task.spawn(function()
+            while _G.EventAuto do
+                for id, pos in pairs(platformPositions) do
+                    if not _G.EventAuto then break end
+
+                    local platform = plot:FindFirstChild(id)
+                    if platform then
+                        local visual = platform:FindFirstChild("VisualFolder")
+                        if visual then
+                            for _, pet in ipairs(visual:GetChildren()) do
+                                local petName = pet.Name
+                                local tool = findToolByPetName(petName)
+                                if tool then
+                                    Notify("⚡ brainrotsTìm Thấy", tool.Name)
+                                    tool.Parent = char
+                                    task.wait(0.5)
+                                    teleportToPlatformID(id)
+
+                                    -- tìm Prompt để kích hoạt
+                                    local hitbox = platform:FindFirstChild("Hitbox")
+                                    if hitbox then
+                                        local prompt = hitbox:FindFirstChildOfClass("ProximityPrompt")
+                                        if prompt then
+                                            task.wait(0.3)
+                                            triggerPrompt(prompt)
+                                            Notify("⚙️ Đang Kích Hoạt", "Platform " .. id)
+                                        end
+                                    end
+                                else
+                                    Notify("❓Thiếu Brainrots", petName)
+                                end
                             end
                         end
                     end
+                    task.wait(2)
                 end
             end
-            task.wait(0.5) -- Talk liên tục mỗi 0.5s
-        end
-    end)
-end
+            Notify("🛑 Dừng Auto", "Auto EventPlatforms đã tắt")
+        end)
+    end,
+})
 
--- 🧭 Hàm Auto TP mỗi 10s
-local function autoTPLoop()
-    task.spawn(function()
-        while running do
-            root.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-            WindUI:Notify({
-                Title = "TP thành công!",
-                Content ="done 1 minute",
-                Duration = 2,
-            })
-            task.wait(60) -- 10 giây mới TP lại 1 lần
-        end
-    end)
-end
 
--- 🔘 Toggle kết hợp
+local RS = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local Remote = RS.Remotes.MissionServicesRemotes.RequestStartInvasion
+
 BgTab:Toggle({
-    Title = "Event Tomade torelli",
-    Desc = "Auto win Event",
+    Title = "Auto Event assault brainrots",
+    Desc = "Auto assault brainrots",
     Default = false,
     Callback = function(state)
-        running = state
+        print("Auto Invasion:", state)
+
+        -- Thông báo Roblox trong suốt
+        StarterGui:SetCore("SendNotification", {
+            Title = "⚔️ Auto Invasion",
+            Text = state and "Đã bật tự động kích hoạt!" or "Đã tắt tự động kích hoạt!",
+            Duration = 3 -- thời gian hiển thị (giây)
+        })
+
         if state then
-            autoTalkLoop()
-            autoTPLoop()
-            WindUI:Notify({
-                Title = "✅ Đã bật chế độ tự động",
-                Content = "ok.",
-                Duration = 3,
-            })
+            _G.AutoInvasion = true
+            task.spawn(function()
+                while _G.AutoInvasion do
+                    Remote:FireServer()
+                    task.wait(5) -- lặp lại mỗi 5 giây (có thể chỉnh)
+                end
+            end)
         else
-            WindUI:Notify({
-                Title = "🛑 Đã tắt chế độ tự động",
-                Content = "Off.",
-                Duration = 3,
-            })
+            _G.AutoInvasion = false
+        end
+    end,
+})
+
+
+local player = game:GetService("Players").LocalPlayer
+local backpack = player:WaitForChild("Backpack")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Remote TurnIn
+local TurnInRemote = ReplicatedStorage.Remotes.Events.Artist.Interact
+
+BgTab:Toggle({
+    Title = "Auto brainrot deliver",
+    Desc = "auto farm event ",
+    Default = false,
+    Callback = function(state)
+        print("Equip + TurnIn: " .. tostring(state))
+
+        if state then
+            getgenv().EquipTurnInLoop = true
+
+            task.spawn(function()
+                while getgenv().EquipTurnInLoop do
+                    local tools = backpack:GetChildren()
+
+                    for _, tool in ipairs(tools) do
+                        if not getgenv().EquipTurnInLoop then break end
+                        if tool:IsA("Tool") and string.find(tool.Name, "kg") then
+                            -- Cầm tool
+                            tool.Parent = player.Character
+                            task.wait(0.12)
+
+                            -- Gọi TurnIn
+                            TurnInRemote:FireServer("TurnIn")
+
+                            -- Cất tool lại
+                            if tool and tool.Parent == player.Character then
+                                tool.Parent = backpack
+                            end
+
+                            task.wait(0.05)
+                        end
+                    end
+
+                    -- Gọi thêm TurnIn liên tục mỗi vòng
+                    TurnInRemote:FireServer("TurnIn")
+
+                    task.wait(0.1)
+                end
+            end)
+        else
+            getgenv().EquipTurnInLoop = false
         end
     end,
 })
