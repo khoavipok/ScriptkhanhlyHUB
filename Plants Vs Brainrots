@@ -8,7 +8,7 @@ WindUI:SetNotificationLower(true)
 -- Tạo cửa sổ
 local Window = WindUI:CreateWindow({
     Title = "Khanhly HUB X Plants Vs Brainrots",
-    Icon = "rbxassetid://118993948043219", -- icon lucide
+    Icon = "rbxassetid://111450164466537", -- icon lucide
     Author = "Khanhly",
     Size = UDim2.fromOffset(600, 300),
     Theme = "Dark",
@@ -21,7 +21,7 @@ local Window = WindUI:CreateWindow({
 
 Window:EditOpenButton({
     Title = "khanhly Hub",
-    Icon = "rbxassetid://118993948043219",
+    Icon = "rbxassetid://111450164466537",
     CornerRadius = UDim.new(0,16),
     StrokeThickness = 2,
     Color = ColorSequence.new( -- gradient
@@ -344,42 +344,15 @@ local Section = SpTab:Section({
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remote = ReplicatedStorage.Remotes.BuyItem
 
--- Hàm tạo toggle riêng cho từng seed
-local function createSeedToggle(tab, seedName)
-    local active = false
+-- ⚙️ Cấu hình spam
+local baseDelay = 0.5 -- delay giữa mỗi lần mua (có thể giảm xuống 0.3 nếu ổn định)
 
-    tab:Toggle({
-        Title = seedName,
-        Desc = "Tự động mua " .. seedName,
-        Default = false,
-        Callback = function(state)
-            active = state
-
-            -- Thông báo bật/tắt
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "Auto Buy " .. seedName,
-                Text = state and "Đã bật" or "Đã tắt",
-                Duration = 2
-            })
-
-            -- Nếu bật thì spam liên tục
-            if state then
-                task.spawn(function()
-                    while active do
-                        Remote:FireServer(seedName)
-                        task.wait(0.2)
-                    end
-                end)
-            end
-        end
-    })
-end
-
--- Danh sách tất cả seeds (✅ đã thêm King Limone Seed ngay sau Mango Seed)
+-- ⚙️ Danh sách seeds
 local seeds = {
     "Mango Seed",
-    "King Limone Seed", -- ✅ thêm vào đây
-    "Shroombino Seed",     
+    "King Limone Seed",
+    "Starfruit Seed",
+    "Shroombino Seed",
     "Tomatrio Seed",
     "Mr Carrot Seed",
     "Carnivorous Plant Seed",
@@ -393,10 +366,50 @@ local seeds = {
     "Cactus Seed",
 }
 
--- Tạo toggle cho từng seed
-for _, seed in ipairs(seeds) do
-    createSeedToggle(SpTab, seed)
+-- ⚙️ Lưu trạng thái toggle
+local activeToggles = {}
+
+-- ⚙️ Hàm auto riêng từng seed (chạy song song)
+local function autoBuySeed(seedName)
+    task.spawn(function()
+        while activeToggles[seedName] do
+            pcall(function()
+                Remote:FireServer(seedName)
+            end)
+            -- ⏳ Delay có thêm random để tránh xung đột server
+            task.wait(baseDelay + math.random() * 0.2)
+        end
+    end)
 end
+
+-- ⚙️ Tạo toggle cho từng seed
+for _, seedName in ipairs(seeds) do
+    activeToggles[seedName] = false
+
+    SpTab:Toggle({
+        Title = seedName,
+        Desc = "Tự động mua " .. seedName,
+        Default = false,
+        Callback = function(state)
+            activeToggles[seedName] = state
+
+            -- Thông báo Roblox
+            pcall(function()
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Auto Buy " .. seedName,
+                    Text = state and "ON ✅" or "OFF ❌",
+                    Duration = 2
+                })
+            end)
+
+            -- Nếu bật → chạy luồng riêng
+            if state then
+                autoBuySeed(seedName)
+            end
+        end
+    })
+end
+
 
 -- Giả sử bạn đang trong 1 Tab nào đó
 local Section = SpTab:Section({
@@ -661,55 +674,83 @@ BgTab:Toggle({
     end,
 })
 
+local Section = BgTab:Section({
+    Title = "auto Halloween",
+    Icon = "skull",
+    Opened = true
+})
 
-local player = game:GetService("Players").LocalPlayer
-local backpack = player:WaitForChild("Backpack")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
--- Remote TurnIn
-local TurnInRemote = ReplicatedStorage.Remotes.Events.Artist.Interact
+-- 🧩 Hàm thông báo Roblox trong suốt
+local function Notify(title, text)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = 3,
+    })
+end
 
+-- 🎃 TOGGLE 1: Candy Brainrot Crate
 BgTab:Toggle({
-    Title = "Auto brainrot deliver",
-    Desc = "auto farm event ",
+    Title = "Candy Brainrot Crate 🍬50",
+    Desc = "Tự động mua Candy Brainrot Crate liên tục",
     Default = false,
     Callback = function(state)
-        print("Equip + TurnIn: " .. tostring(state))
+        _G.AutoCandyCrate = state
+        Notify("Auto Candy Brainrot Crate", state and "Đã bật" or "Đã tắt")
 
         if state then
-            getgenv().EquipTurnInLoop = true
-
             task.spawn(function()
-                while getgenv().EquipTurnInLoop do
-                    local tools = backpack:GetChildren()
-
-                    for _, tool in ipairs(tools) do
-                        if not getgenv().EquipTurnInLoop then break end
-                        if tool:IsA("Tool") and string.find(tool.Name, "kg") then
-                            -- Cầm tool
-                            tool.Parent = player.Character
-                            task.wait(0.12)
-
-                            -- Gọi TurnIn
-                            TurnInRemote:FireServer("TurnIn")
-
-                            -- Cất tool lại
-                            if tool and tool.Parent == player.Character then
-                                tool.Parent = backpack
-                            end
-
-                            task.wait(0.05)
-                        end
-                    end
-
-                    -- Gọi thêm TurnIn liên tục mỗi vòng
-                    TurnInRemote:FireServer("TurnIn")
-
-                    task.wait(0.1)
+                while _G.AutoCandyCrate do
+                    local args = { [1] = "Candy Brainrot Crate" }
+                    ReplicatedStorage.Remotes.BuyCrate:FireServer(unpack(args))
+                    task.wait(1)
                 end
             end)
-        else
-            getgenv().EquipTurnInLoop = false
+        end
+    end,
+})
+
+-- 🃏 TOGGLE 2: Halloween Card Pack
+BgTab:Toggle({
+    Title = "Halloween Card Pack 🍬150",
+    Desc = "Tự động mua Card Pack Halloween liên tục",
+    Default = false,
+    Callback = function(state)
+        _G.AutoCardPack = state
+        Notify("Auto Buy Card Pack", state and "Đã bật" or "Đã tắt")
+
+        if state then
+            task.spawn(function()
+                while _G.AutoCardPack do
+                    local args = { [1] = "Halloween" }
+                    ReplicatedStorage.Remotes.BuyCardPack:FireServer(unpack(args))
+                    task.wait(1)
+                end
+            end)
+        end
+    end,
+})
+
+-- 👻 TOGGLE 3: Candy Spooky Crate
+BgTab:Toggle({
+    Title = "Candy Spooky Crate 🍬100",
+    Desc = "Tự động mua Candy Spooky Crate liên tục",
+    Default = false,
+    Callback = function(state)
+        _G.AutoSpookyCrate = state
+        Notify("Auto Spooky Crate", state and "Đã bật" or "Đã tắt")
+
+        if state then
+            task.spawn(function()
+                while _G.AutoSpookyCrate do
+                    local args = { [1] = "Candy Spooky Crate" }
+                    ReplicatedStorage.Remotes.BuyCrate:FireServer(unpack(args))
+                    task.wait(1)
+                end
+            end)
         end
     end,
 })
