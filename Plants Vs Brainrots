@@ -330,7 +330,7 @@ MainTab:Toggle({
 
 
 local SpTab = Window:Tab({
-    Title = "auto buy shop",
+    Title = "shop buy",
     Icon = "star",
 })
 
