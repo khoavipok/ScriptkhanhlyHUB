@@ -1,0 +1,309 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local UILibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Khanhlymenu/refs/heads/main/Menu%20simple"))()
+local Window = UILibrary:CreateWindow("✨ khanhly BETA", UDim2.new(0, 250, 0, 350))
+
+local SelectedPlayer = nil
+local Locked = false
+
+
+local FollowDistance = 3.5
+local HeightOffset = 1.8
+local PredictPower = 5
+
+-- Highlight Folder
+local ESPFolder = Instance.new("Folder", game.CoreGui)
+ESPFolder.Name = "BehindLockESP"
+
+local CurrentHighlight
+local function highlight(plr)
+    if CurrentHighlight then CurrentHighlight:Destroy() end
+    if not (plr and plr.Character) then return end
+
+    local h = Instance.new("Highlight")
+    h.FillColor = Color3.fromRGB(255, 80, 80)
+    h.FillTransparency = 0.45
+    h.OutlineColor = Color3.new(1,1,1)
+    h.Adornee = plr.Character
+    h.Parent = ESPFolder
+    CurrentHighlight = h
+end
+
+local Info = Window:CreateLabel("Selected: None")
+local State = Window:CreateLabel("State: Idle")
+
+-- ✅ Player List Scroll Fix
+local Scroll = Instance.new("ScrollingFrame", Window:GetContainer())
+Scroll.Size = UDim2.new(1,-10,0,160)
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.ScrollBarThickness = 6
+Scroll.BackgroundColor3 = Color3.fromRGB(35,35,35)
+
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.Padding = UDim.new(0,3)
+
+local function UpdateCanvas()
+    Scroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 10)
+end
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+
+local function RefreshList()
+    for _,v in pairs(Scroll:GetChildren()) do
+        if v:IsA("TextButton") then v:Destroy() end
+    end
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local B = Instance.new("TextButton")
+            B.Parent = Scroll
+            B.Size = UDim2.new(1,-5,0,28)
+            B.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            B.TextColor3 = Color3.new(1,1,1)
+            B.Text = plr.Name
+            B.MouseButton1Click:Connect(function()
+                SelectedPlayer = plr
+                Info.Text = "Selected: " .. plr.Name
+                highlight(plr)
+            end)
+        end
+    end
+    UpdateCanvas()
+end
+RefreshList()
+
+Window:CreateButton("🔁 Refresh List", RefreshList)
+
+-- ✅ Toggle Lock
+Window:CreateToggle("Behind Lock", function(v)
+    Locked = v
+    State.Text = v and "State: LOCKED" or "State: Idle"
+    if not v then
+        Camera.CameraType = Enum.CameraType.Custom
+    end
+end)
+
+-- ✅ MAIN LOCK LOOP (Smooth + Always Behind)
+RunService.Heartbeat:Connect(function(dt)
+    if not Locked or not SelectedPlayer then return end
+
+    local target = SelectedPlayer.Character
+    local me = LocalPlayer.Character
+    if not target or not me then return end
+
+    local tHRP = target:FindFirstChild("HumanoidRootPart")
+    local mHRP = me:FindFirstChild("HumanoidRootPart")
+    if not tHRP or not mHRP then return end
+
+    -- 🧠 Predict Movement (smoother dodge lock)
+    local predicted = tHRP.Position + (tHRP.AssemblyLinearVelocity * dt * PredictPower)
+
+    -- ✅ LUÔN SAU LƯNG (không bao giờ lệch ra trước)
+    local behindPos = predicted - (tHRP.CFrame.LookVector * FollowDistance) + Vector3.new(0, HeightOffset, 0)
+
+    -- 🏃 Di chuyển mượt, không trượt
+    mHRP.CFrame = CFrame.new(mHRP.Position:Lerp(behindPos, 0.6), predicted)
+
+    -- 🎥 Camera Smooth Follow (Không rung / không giật / độ mượt cao)
+    local camTarget = CFrame.lookAt(
+        mHRP.Position + Vector3.new(13, 5, 3),
+        predicted + Vector3.new(0, 1.8, 0)
+    )
+
+    Camera.CameraType = Enum.CameraType.Scriptable
+    Camera.CFrame = Camera.CFrame:Lerp(camTarget, 0.15)
+end)
+
+print("✅ Behind Lock Loaded Successfully!")
+
+
+-- 💀 Death Counter Detector (v2 - có chờ load map)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TOOL_NAME = "Death Counter"
+
+-- 🕐 Hiện thông báo chờ load trên màn hình
+local function showLoadingScreen(seconds)
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "DeathCounterLoading"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 0.3
+	label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Text = "🔍 Đang kiểm tra người chơi... (" .. seconds .. "s)"
+	label.Parent = screenGui
+
+	-- Đếm ngược
+	for i = seconds - 1, 0, -1 do
+		task.wait(1)
+		label.Text = "🔍 Đang kiểm tra người chơi... (" .. i .. "s)"
+	end
+
+	-- Xóa thông báo
+	screenGui:Destroy()
+end
+
+-- 🧠 Hiện thông báo trên đầu người chơi
+local function showESP(player, text, color)
+	local char = player.Character
+	if not char then return end
+	local head = char:FindFirstChild("Head")
+	if not head then return end
+
+	if head:FindFirstChild("DeathESP") then
+		head.DeathESP:Destroy()
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DeathESP"
+	billboard.Adornee = head
+	billboard.Size = UDim2.new(0, 200, 0, 50)
+	billboard.StudsOffset = Vector3.new(0, 3, 0)
+	billboard.AlwaysOnTop = true
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = billboard
+
+	billboard.Parent = head
+
+	task.delay(10, function()
+		if billboard and billboard.Parent then
+			billboard:Destroy()
+		end
+	end)
+end
+
+-- 🔎 Theo dõi trạng thái Death Counter
+local function trackPlayer(player)
+	task.spawn(function()
+		local lastState = nil
+		while player.Parent do
+			local hasTool = false
+			local backpack = player:FindFirstChild("Backpack")
+			local character = player.Character
+
+			if backpack and backpack:FindFirstChild(TOOL_NAME) then
+				hasTool = true
+			elseif character and character:FindFirstChild(TOOL_NAME) then
+				hasTool = true
+			end
+
+			if hasTool ~= lastState then
+				lastState = hasTool
+				if hasTool then
+					showESP(player, "🟢 CHƯA BẬT DEATH COUNTER", Color3.fromRGB(0, 255, 0))
+				else
+					showESP(player, "🔴 ĐÃ BẬT DEATH COUNTER", Color3.fromRGB(255, 0, 0))
+				end
+			end
+
+			task.wait(1.5)
+		end
+	end)
+end
+
+-- 🧩 Chờ load map trước khi bắt đầu quét
+task.spawn(function()
+	showLoadingScreen(7) -- đếm ngược 7 giây
+end)
+
+-- 🧍 Theo dõi toàn bộ người chơi
+task.wait(2) -- chờ load trước khi bắt đầu
+for _, plr in pairs(Players:GetPlayers()) do
+	if plr ~= LocalPlayer then
+		trackPlayer(plr)
+	end
+end
+
+Players.PlayerAdded:Connect(function(plr)
+	if plr ~= LocalPlayer then
+		trackPlayer(plr)
+	end
+end)
+
+-- ⚡ AUTO FIX LAG TỐI ĐA (No UI / Auto Run)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Giảm chất lượng hiệu ứng
+local function optimize(obj)
+    if obj:IsA("ParticleEmitter") then
+        obj.Rate = 0
+        obj.Lifetime = NumberRange.new(0)
+        obj.Speed = NumberRange.new(0)
+        obj.Enabled = false
+
+    elseif obj:IsA("Smoke") or obj:IsA("Fire") then
+        obj.Enabled = false
+        
+    elseif obj:IsA("Beam") or obj:IsA("Trail") then
+        obj:Destroy()
+
+    elseif obj:IsA("Highlight") then
+        obj:Destroy()
+
+    elseif obj:IsA("Explosion") then
+        obj.Visible = false
+        obj.BlastPressure = 0
+        obj.BlastRadius = 0
+
+    elseif obj:IsA("Decal") then
+        obj.Transparency = 1
+
+    elseif obj:IsA("MeshPart") then
+        obj.Material = Enum.Material.Plastic
+        obj.TextureID = ""
+        obj.Reflectance = 0
+
+    elseif obj:IsA("Part") then
+        -- Chuyển hitbox thành khối vuông mờ
+        obj.Material = Enum.Material.Plastic
+        obj.Color = Color3.new(0.8, 0.8, 0.8)
+        obj.Transparency = 0.4
+        obj.Reflectance = 0
+
+    end
+end
+
+-- Quét toàn map
+local function scan()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        optimize(obj)
+    end
+end
+
+-- Tự tối ưu khi vật mới spawn
+workspace.DescendantAdded:Connect(function(obj)
+    task.wait()
+    optimize(obj)
+end)
+
+-- Tắt Shadow và hiệu ứng ánh sáng
+task.spawn(function()
+    local Lighting = game:GetService("Lighting")
+    Lighting.GlobalShadows = false
+    Lighting.EnvironmentDiffuseScale = 0
+    Lighting.EnvironmentSpecularScale = 0
+end)
+
+-- Auto scan liên tục (fix cả map thay đổi)
+while true do
+    scan()
+    task.wait(2) -- Quét lại mỗi 2 giây
+end
