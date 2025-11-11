@@ -33,6 +33,19 @@ Window:EditOpenButton({
     Draggable = true,
 })
 
+-- ✅ FIX: Tạo hàm Notify an toàn (không crash UI)
+local function SafeNotify(title, text, time)
+    local StarterGui = game:GetService("StarterGui")
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = time or 1
+        })
+    end)
+end
+
+
 -- Tab chính
 local DsTab = Window:Tab({
     Title = "Discord",
@@ -467,101 +480,92 @@ for _, gear in ipairs(gears) do
     createGearToggle(SpTab, gear)
 end
 
+ -- ✅ Window Tab
 local BgTab = Window:Tab({
     Title = "Event",
-    Icon = "zap",
+    Icon = "user",
 })
 
-local Section = BgTab:Section({
-    Title = "Event",
-    Icon = "star",
-    Opened = true
-})
-
+------------------------------------------------------------
+-- ✅ TP Event Portal
+------------------------------------------------------------
 BgTab:Button({
     Title = "TP event portal",
     Desc = "tp portal",
     Callback = function()
         local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local hrp = character:WaitForChild("HumanoidRootPart")
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
 
-        -- Teleport
-        hrp.CFrame = CFrame.new(Vector3.new(-175.4, 11.6, 987.8))
-
-        -- Thông báo Roblox trong suốt
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Teleport Thành công ✅",
-            Text = "🕑 loading.....",
-            Duration = 4
-        })
+        hrp.CFrame = CFrame.new(-175.4, 11.6, 987.8)
+        SafeNotify("Teleport Thành công ✅", "🕑 Loading...", 4)
     end,
 })
 
+------------------------------------------------------------
+-- ✅ AUTO BUY PORTAL
+------------------------------------------------------------
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local BuyPortalRemote = ReplicatedStorage.Remotes.BuyPortal
+local RS = game:GetService("ReplicatedStorage")
+local BuyPortalRemote = RS:WaitForChild("Remotes"):WaitForChild("BuyPortal", 5)
 
-local active = false
+if not BuyPortalRemote then
+    warn("❌ REMOTE BuyPortal không tồn tại!")
+end
+
+local activeBuy = false
 
 BgTab:Toggle({
     Title = "Auto Buy Portal",
-    Desc = "Mua Portal liên tục",
+    Desc = "Mua portal liên tục",
     Default = false,
     Callback = function(state)
-        active = state
+        activeBuy = state
 
-        -- Thông báo bật/tắt
-        game.StarterGui:SetCore("SendNotification", {
-            Title = "Auto Buy Portal",
-            Text = state and "Đã bật" or "Đã tắt",
-            Duration = 2
-        })
+        SafeNotify("Auto Buy Portal", state and "✅ Đã bật" or "🛑 Đã tắt", 2)
 
-        -- Nếu bật thì loop liên tục
-        if state then
+        if state and BuyPortalRemote then
             task.spawn(function()
-                while active do
+                while activeBuy do
                     BuyPortalRemote:FireServer()
-                    task.wait(0.2) -- tốc độ mua
+                    task.wait(0.2)
                 end
             end)
         end
-    end
+    end,
 })
 
+------------------------------------------------------------
+-- ✅ AUTO EVENT SHINY CARD PACK
+------------------------------------------------------------
 
--- Toggle auto EventPlatforms
 BgTab:Toggle({
     Title = "Auto Event shiny card pack",
-    Desc = "auto farm pranium",
+    Desc = "Auto farm pranium",
     Default = false,
     Callback = function(state)
-        local StarterGui = game:GetService("StarterGui")
-        local function Notify(title, text)
-            StarterGui:SetCore("SendNotification", {
-                Title = title,
-                Text = text,
-                Duration = 3, -- thời gian hiển thị
-            })
-        end
 
-        Notify("Auto EventPlatforms", state and "✅ ON" or "🛑 OFF")
+        SafeNotify("Auto EventPlatforms", state and "✅ ON" or "🛑 OFF")
 
-        if not state then
-            _G.EventAuto = false
+        _G.EventAuto = state
+        if not state then return end
+
+        local player = game.Players.LocalPlayer
+        local char = player.Character or player.CharacterAdded:Wait()
+        local root = char:WaitForChild("HumanoidRootPart")
+
+        -- ✅ Check Plot an toàn (không gây crash)
+        local plotFolder = workspace:WaitForChild("Plots")
+        local myPlot = plotFolder:FindFirstChild("1")
+
+        if not myPlot then
+            SafeNotify("⚠️ Lỗi", "Không tìm thấy Plot 1!", 3)
             return
         end
 
-        _G.EventAuto = true
+        local plot = myPlot:WaitForChild("EventPlatforms")
 
-        local Players = game:GetService("Players")
-        local player = Players.LocalPlayer
-        local char = player.Character or player.CharacterAdded:Wait()
-        local root = char:WaitForChild("HumanoidRootPart")
-        local plot = workspace.Plots["1"].EventPlatforms
-
-        -- Tọa độ chính xác
+        -- ✅ Toạ độ Platforms
         local platformPositions = {
             ["-4"] = Vector3.new(-221.7, 14.4, 993.8),
             ["-3"] = Vector3.new(-222.8, 14.4, 983.8),
@@ -569,36 +573,17 @@ BgTab:Toggle({
             ["-1"] = Vector3.new(-221.8, 14.4, 963.5),
         }
 
-        -- Hàm tìm tool trùng tên pet
-        local function findToolByPetName(petName)
-            local backpack = player:WaitForChild("Backpack")
+        local backpack = player:WaitForChild("Backpack")
+
+        local function findTool(petName)
             for _, tool in ipairs(backpack:GetChildren()) do
-                if string.find(tool.Name, petName) then
+                if tool:IsA("Tool") and tool.Name:find(petName) then
                     return tool
                 end
             end
             return nil
         end
 
-        -- Hàm teleport
-        local function teleportToPlatformID(id)
-            local pos = platformPositions[id]
-            if pos then
-                root.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
-                Notify("TP Thành công", "Đến Platform " .. id)
-            end
-        end
-
-        -- Hàm kích hoạt ProximityPrompt
-        local function triggerPrompt(prompt)
-            if fireproximityprompt then
-                fireproximityprompt(prompt)
-            else
-                Notify("⚠️ error", "Executor không hỗ trợ fireproximityprompt")
-            end
-        end
-
-        -- Vòng lặp chính auto
         task.spawn(function()
             while _G.EventAuto do
                 for id, pos in pairs(platformPositions) do
@@ -609,178 +594,276 @@ BgTab:Toggle({
                         local visual = platform:FindFirstChild("VisualFolder")
                         if visual then
                             for _, pet in ipairs(visual:GetChildren()) do
-                                local petName = pet.Name
-                                local tool = findToolByPetName(petName)
+                                local tool = findTool(pet.Name)
                                 if tool then
-                                    Notify("⚡ brainrotsTìm Thấy", tool.Name)
+                                    SafeNotify("⚡ Tìm Thấy", tool.Name)
                                     tool.Parent = char
-                                    task.wait(0.5)
-                                    teleportToPlatformID(id)
+                                    task.wait(0.4)
 
-                                    -- tìm Prompt để kích hoạt
+                                    root.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+                                    task.wait(0.3)
+
+                                    -- Prompt
                                     local hitbox = platform:FindFirstChild("Hitbox")
                                     if hitbox then
                                         local prompt = hitbox:FindFirstChildOfClass("ProximityPrompt")
                                         if prompt then
-                                            task.wait(0.3)
-                                            triggerPrompt(prompt)
-                                            Notify("⚙️ Đang Kích Hoạt", "Platform " .. id)
+                                            if fireproximityprompt then
+                                                fireproximityprompt(prompt)
+                                                SafeNotify("⚙️ Kích hoạt", "Platform " .. id)
+                                            else
+                                                SafeNotify("⚠️ Executor lỗi", "Không hỗ trợ fireproximityprompt")
+                                            end
                                         end
                                     end
                                 else
-                                    Notify("❓Thiếu Brainrots", petName)
+                                    SafeNotify("❓ Thiếu tool", pet.Name)
                                 end
                             end
                         end
                     end
-                    task.wait(2)
+                    task.wait(1.5)
                 end
             end
-            Notify("🛑 Dừng Auto", "Auto EventPlatforms đã tắt")
+
+            SafeNotify("🛑 Auto OFF", "EventPlatforms đã tắt")
         end)
     end,
 })
 
+------------------------------------------------------------
+-- ✅ AUTO EVENT INVASION
+------------------------------------------------------------
 
-local RS = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local Remote = RS.Remotes.MissionServicesRemotes.RequestStartInvasion
+local Remote = RS.Remotes.MissionServicesRemotes:WaitForChild("RequestStartInvasion")
 
 BgTab:Toggle({
     Title = "Auto Event assault brainrots",
     Desc = "Auto assault brainrots",
     Default = false,
     Callback = function(state)
-        print("Auto Invasion:", state)
+        _G.AutoInvasion = state
 
-        -- Thông báo Roblox trong suốt
-        StarterGui:SetCore("SendNotification", {
-            Title = "⚔️ Auto Invasion",
-            Text = state and "Đã bật tự động kích hoạt!" or "Đã tắt tự động kích hoạt!",
-            Duration = 3 -- thời gian hiển thị (giây)
-        })
+        SafeNotify("⚔️ Auto Invasion", state and "✅ Đã bật" or "🛑 Đã tắt")
 
         if state then
-            _G.AutoInvasion = true
             task.spawn(function()
                 while _G.AutoInvasion do
                     Remote:FireServer()
-                    task.wait(5) -- lặp lại mỗi 5 giây (có thể chỉnh)
+                    task.wait(5)
                 end
             end)
-        else
-            _G.AutoInvasion = false
         end
     end,
 })
 
-local Section = BgTab:Section({
-    Title = "auto Halloween",
-    Icon = "skull",
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RS = game:GetService("ReplicatedStorage")
+
+local SubmitRemote = RS.Remotes.PlantExtractor.Submit
+local ClaimRemote = RS.Remotes.PlantExtractor.Claim
+
+-- Danh sách PLANT hợp lệ
+local plantNames = {
+    "Mango","King Limone","Starfruit","Shroombino","Tomatrio","Mr Carrot",
+    "Carnivorous Plant","Cocotank","Watermelon","Eggplant","Dragon Fruit",
+    "Sunflower","Pumpkin","Strawberry","Cactus"
+}
+
+-- Loại trừ item bị hiểu nhầm là plant
+local blacklistKeywords = {
+    "seed","bottle","potion","grenade","bat","shovel","plate","launch","card",
+    "gear","tool","backpack","index","fuse","brainrot","sell"
+}
+
+-- Kiểm tra 1 tool có phải là plant hợp lệ không
+local function isPlantTool(tool)
+    if not tool or not tool.Name then return false end
+    local name = string.lower(tool.Name)
+
+    -- Loại trừ nếu chứa keyword xấu
+    for _, bad in ipairs(blacklistKeywords) do
+        if string.find(name, bad, 1, true) then
+            return false
+        end
+    end
+
+    -- Kiểm tra thuộc danh sách plant
+    for _, plant in ipairs(plantNames) do
+        if string.find(name, string.lower(plant), 1, true) then
+            -- phải là Tool có handle
+            if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+_G.AutoHoldPlant = false
+
+BgTab:Toggle({
+    Title = "Auto XP",
+    Desc = "farm xp plants",
+    Default = false,
+    Callback = function(state)
+        _G.AutoHoldPlant = state
+
+        if state then
+            task.spawn(function()
+                while _G.AutoHoldPlant do
+                    local Character = LocalPlayer.Character
+                    local Backpack = LocalPlayer:WaitForChild("Backpack")
+
+                    if not Character then task.wait(0.3) continue end
+
+                    -- Tool đang cầm
+                    local currentTool = Character:FindFirstChildOfClass("Tool")
+
+                    -- Nếu cầm sai item -> trả lại backpack
+                    if currentTool and not isPlantTool(currentTool) then
+                        currentTool.Parent = Backpack
+                        currentTool = nil
+                    end
+
+                    -- Nếu KHÔNG cầm plant -> lấy plant từ backpack lên
+                    if not currentTool then
+                        local found = false
+                        for _, tool in ipairs(Backpack:GetChildren()) do
+                            if isPlantTool(tool) then
+                                tool.Parent = Character
+                                found = true
+                                break
+                            end
+                        end
+
+                        -- Không tìm thấy plant -> không submit để tránh spam
+                        if not found then
+                            task.wait(0.15)
+                            continue
+                        end
+                    end
+
+                    -- ✅ LÚC NÀY ĐANG CẦM PLANT → AUTO SUBMIT + CLAIM
+                    if currentTool or Character:FindFirstChildOfClass("Tool") then
+                        pcall(function()
+                            SubmitRemote:InvokeServer()
+                        end)
+                        task.wait(0.3)
+
+                        pcall(function()
+                            ClaimRemote:InvokeServer()
+                        end)
+                        task.wait(0.3)
+                    end
+
+                    task.wait(0.12)
+                end
+            end)
+        end
+    end,
+})
+
+------------------------------------------------------------
+-- ✅ SECTIONS (đổi tên cho khỏi trùng)
+------------------------------------------------------------
+
+local HalloweenSection = BgTab:Section({
+    Title = "Auto Mutation",
+    Icon = "zap",
     Opened = true
 })
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+local plr = Players.LocalPlayer
 
--- 🧩 Hàm thông báo Roblox trong suốt
-local function Notify(title, text)
+local function Notify(title, text, duration)
     StarterGui:SetCore("SendNotification", {
         Title = title,
         Text = text,
-        Duration = 3,
+        Duration = duration or 2,
     })
 end
 
--- 🎃 TOGGLE 1: Candy Brainrot Crate
+-- Toggle
 BgTab:Toggle({
-    Title = "Candy Brainrot Crate 🍬50",
-    Desc = "Tự động mua Candy Brainrot Crate liên tục",
+    Title = "Auto EXP Machine",
+    Desc = "farm Auto event ",
     Default = false,
     Callback = function(state)
-        _G.AutoCandyCrate = state
-        Notify("Auto Candy Brainrot Crate", state and "Đã bật" or "Đã tắt")
+        getgenv().AutoEXP = state
 
         if state then
-            task.spawn(function()
-                while _G.AutoCandyCrate do
-                    local args = { [1] = "Candy Brainrot Crate" }
-                    ReplicatedStorage.Remotes.BuyCrate:FireServer(unpack(args))
-                    task.wait(1)
-                end
-            end)
+            Notify("✅ Auto EXP", "Đã bật auto EXP.", 2)
+        else
+            Notify("⛔ Auto EXP", "Đã tắt auto EXP.", 2)
         end
-    end,
-})
 
--- 🃏 TOGGLE 2: Halloween Card Pack
-BgTab:Toggle({
-    Title = "Halloween Card Pack 🍬150",
-    Desc = "Tự động mua Card Pack Halloween liên tục",
-    Default = false,
-    Callback = function(state)
-        _G.AutoCardPack = state
-        Notify("Auto Buy Card Pack", state and "Đã bật" or "Đã tắt")
+        task.spawn(function()
+            while getgenv().AutoEXP do
+                task.wait(0.05)
 
-        if state then
-            task.spawn(function()
-                while _G.AutoCardPack do
-                    local args = { [1] = "Halloween" }
-                    ReplicatedStorage.Remotes.BuyCardPack:FireServer(unpack(args))
-                    task.wait(1)
+                local backpack = plr:FindFirstChild("Backpack")
+                local char = plr.Character
+
+                -- ✅ Tìm tool có tên chứa "Mini EXP Bottle"
+                local foundTool = nil
+                if backpack then
+                    for _, tool in ipairs(backpack:GetChildren()) do
+                        if tool:IsA("Tool") and string.find(tool.Name, "Mini EXP Bottle") then
+                            foundTool = tool
+                            break
+                        end
+                    end
                 end
-            end)
-        end
-    end,
-})
 
--- 👻 TOGGLE 3: Candy Spooky Crate
-BgTab:Toggle({
-    Title = "Candy Spooky Crate 🍬100",
-    Desc = "Tự động mua Candy Spooky Crate liên tục",
-    Default = false,
-    Callback = function(state)
-        _G.AutoSpookyCrate = state
-        Notify("Auto Spooky Crate", state and "Đã bật" or "Đã tắt")
-
-        if state then
-            task.spawn(function()
-                while _G.AutoSpookyCrate do
-                    local args = { [1] = "Candy Spooky Crate" }
-                    ReplicatedStorage.Remotes.BuyCrate:FireServer(unpack(args))
-                    task.wait(1)
+                -- ✅ Equip tool bất kể là [x1], [x2], [x10]
+                if foundTool and char and char:FindFirstChild("Humanoid") then
+                    char.Humanoid:EquipTool(foundTool)
                 end
-            end)
-        end
-    end,
+
+                -- ✅ Tìm và Fire BindableEvent NGAY LẬP TỨC không delay
+                local xpPrompt = workspace:FindFirstChild("ScriptedMap")
+                    and workspace.ScriptedMap:FindFirstChild("MutationMachine")
+                    and workspace.ScriptedMap.MutationMachine:FindFirstChild("UIBAR")
+                    and workspace.ScriptedMap.MutationMachine.UIBAR:FindFirstChild("XPPrompt")
+
+                if xpPrompt and xpPrompt:IsA("BindableEvent") then
+                    xpPrompt:Fire()
+                end
+            end
+        end)
+    end
 })
 
 
-local Section = BgTab:Section({
-    Title = "Bug lag",
+local BugSection = BgTab:Section({
+    Title = "Bug Lag",
     Icon = "star",
     Opened = true
 })
 
--- Giả sử bạn đã có BgTab ở trên rồi
--- BgTab:Toggle(...) sẽ tạo toggle điều khiển auto equip
+------------------------------------------------------------
+-- ✅ AUTO BUG LAG EQUIP
+------------------------------------------------------------
 
 local player = game:GetService("Players").LocalPlayer
 local backpack = player:WaitForChild("Backpack")
-
-local connection -- giữ kết nối để ngắt khi tắt toggle
 local running = false
+local connection
 
 BgTab:Toggle({
-    Title = "Auto bug Lag⚠️",
+    Title = "Auto Bug Lag⚠️",
     Desc = "Tự động cầm tất cả tool trong Backpack",
     Default = false,
     Callback = function(state)
-        print("Toggle: " .. tostring(state))
         running = state
 
         if state then
-            -- Khi bật toggle
             local function equipAll()
                 for _, tool in ipairs(backpack:GetChildren()) do
                     if not running then return end
@@ -791,19 +874,15 @@ BgTab:Toggle({
                 end
             end
 
-            -- Gọi lúc đầu
             equipAll()
 
-            -- Theo dõi khi có tool mới
             connection = backpack.ChildAdded:Connect(function(tool)
-                if not running then return end
-                if tool:IsA("Tool") then
+                if running and tool:IsA("Tool") then
                     task.wait(0.2)
                     tool.Parent = player.Character
                 end
             end)
         else
-            -- Khi tắt toggle
             running = false
             if connection then
                 connection:Disconnect()
@@ -812,6 +891,8 @@ BgTab:Toggle({
         end
     end,
 })
+           
+
 
 -- Tab chính
 local FlTab = Window:Tab({
