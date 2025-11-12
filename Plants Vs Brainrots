@@ -666,8 +666,11 @@ local HalloweenSection = BgTab:Section({
 
 local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
 local plr = Players.LocalPlayer
 
+-- 🪧 Hàm gửi thông báo nhỏ
 local function Notify(title, text, duration)
     StarterGui:SetCore("SendNotification", {
         Title = title,
@@ -676,10 +679,12 @@ local function Notify(title, text, duration)
     })
 end
 
--- Toggle
+-- ⚙️ Vị trí máy EXP (bạn có thể chỉnh nếu khác)
+local machinePos = Vector3.new(-154, 11.8, 1027.4)
+
 BgTab:Toggle({
     Title = "Auto EXP Machine",
-    Desc = "farm Auto event ",
+    Desc = "auto EVENT",
     Default = false,
     Callback = function(state)
         getgenv().AutoEXP = state
@@ -692,35 +697,60 @@ BgTab:Toggle({
 
         task.spawn(function()
             while getgenv().AutoEXP do
-                task.wait(0.05)
+                task.wait(0.2)
 
+                ---------------------------------------------------------------------
+                -- 🚀 TELEPORT ĐẾN MÁY (nếu đang xa)
+                ---------------------------------------------------------------------
+                local char = plr.Character or plr.CharacterAdded:Wait()
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+
+                if hrp and (hrp.Position - machinePos).Magnitude > 6 then
+                    hrp.CFrame = CFrame.new(machinePos + Vector3.new(0, 2, 0))
+                    Notify("⚙️ Dịch chuyển", "Đã đến máy EXP.", 1)
+                end
+
+                ---------------------------------------------------------------------
+                -- 🧪 AUTO EQUIP CHAI EXP (Mini -> Small)
+                ---------------------------------------------------------------------
                 local backpack = plr:FindFirstChild("Backpack")
-                local char = plr.Character
+                local humanoid = char:FindFirstChild("Humanoid")
 
-                -- ✅ Tìm tool có tên chứa "Mini EXP Bottle"
-                local foundTool = nil
-                if backpack then
+                if backpack and humanoid then
+                    local expTool = nil
                     for _, tool in ipairs(backpack:GetChildren()) do
-                        if tool:IsA("Tool") and string.find(tool.Name, "Mini EXP Bottle") then
-                            foundTool = tool
+                        if tool:IsA("Tool") and (tool.Name:find("Mini EXP Bottle") or tool.Name:find("Small EXP Bottle")) then
+                            expTool = tool
                             break
                         end
                     end
+                    if expTool then
+                        humanoid:EquipTool(expTool)
+                    end
                 end
 
-                -- ✅ Equip tool bất kể là [x1], [x2], [x10]
-                if foundTool and char and char:FindFirstChild("Humanoid") then
-                    char.Humanoid:EquipTool(foundTool)
-                end
+                ---------------------------------------------------------------------
+                -- ⚡ KÍCH HOẠT PROMPT "Add XP"
+                ---------------------------------------------------------------------
+                local map = workspace:FindFirstChild("ScriptedMap")
+                local machine = map and map:FindFirstChild("MutationMachine")
+                local uiBar = machine and machine:FindFirstChild("UIBAR")
+                local prompt = uiBar and uiBar:FindFirstChild("XPPrompt")
 
-                -- ✅ Tìm và Fire BindableEvent NGAY LẬP TỨC không delay
-                local xpPrompt = workspace:FindFirstChild("ScriptedMap")
-                    and workspace.ScriptedMap:FindFirstChild("MutationMachine")
-                    and workspace.ScriptedMap.MutationMachine:FindFirstChild("UIBAR")
-                    and workspace.ScriptedMap.MutationMachine.UIBAR:FindFirstChild("XPPrompt")
-
-                if xpPrompt and xpPrompt:IsA("BindableEvent") then
-                    xpPrompt:Fire()
+                if prompt and prompt:IsA("ProximityPrompt") then
+                    pcall(function()
+                        if typeof(fireproximityprompt) == "function" then
+                            fireproximityprompt(prompt)
+                            Notify("⚡ Auto EXP", "Đã ấn Add XP thành công.", 1)
+                        else
+                            prompt.Enabled = true
+                            prompt.HoldDuration = 0
+                            ProximityPromptService:InputHoldBegin(prompt)
+                            task.wait(0.2)
+                            ProximityPromptService:InputHoldEnd(prompt)
+                            Notify("⚡ Auto EXP", "Đã ấn Add XP (fallback).", 1)
+                        end
+                    end)
                 end
             end
         end)
