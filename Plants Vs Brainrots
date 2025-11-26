@@ -1,49 +1,34 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/New-update-/refs/heads/main/Update%20notice"))()
 
-local Version = "1.6.41"
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/download/" .. Version .. "/main.lua"))()
-
-WindUI:SetNotificationLower(true)
-
--- Tạo cửa sổ
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 local Window = WindUI:CreateWindow({
-    Title = "Khanhly HUB X Plants Vs Brainrots",
-    Icon = "rbxassetid://111450164466537", -- icon lucide
-    Author = "Khanhly",
-    Size = UDim2.fromOffset(600, 300),
-    Theme = "Dark",
-    Resizable = true,
-
-    -- 🔥 Ảnh nền của bạn
-    Background = "rbxassetid://74892959476466", -- 96368639036805 hình lền
-    BackgroundTransparency = 0.07, -- 0 = rõ, 1 = tàng hình
+Title = "Khanhly HUB X Plants Vs Brainrots",
+Icon = "rbxassetid://111450164466537",
+Author = "by Khanhly",
+Folder = "khanhly pranium",
+Size = UDim2.fromOffset(580, 340),
+Transparent = true,
+Theme = "Dark",
+Resizable = true,
+SideBarWidth = 150,
+Background = "rbxassetid://74892959476466", -- 96368639036805 hình lền
+BackgroundImageTransparency = 0.42,
+HideSearchBar = false,
+ScrollBarEnabled = false,
+User = { Enabled = true, Anonymous = false },
 })
 
 Window:EditOpenButton({
-    Title = "khanhly Hub",
-    Icon = "rbxassetid://111450164466537",
-    CornerRadius = UDim.new(0,16),
-    StrokeThickness = 2,
-    Color = ColorSequence.new( -- gradient
-        Color3.fromHex("FF0F7B"), 
-        Color3.fromHex("F89B29")
-    ),
-    OnlyMobile = false,
-    Enabled = true,
-    Draggable = true,
+Title = "khanhly Hub",
+Icon = "rbxassetid://111450164466537",
+CornerRadius = UDim.new(0,16),
+StrokeThickness = 2,
+Color = ColorSequence.new(
+Color3.fromHex("FF0F7B"),
+Color3.fromHex("F89B29")
+),
+Draggable = true,
 })
-
--- ✅ FIX: Tạo hàm Notify an toàn (không crash UI)
-local function SafeNotify(title, text, time)
-    local StarterGui = game:GetService("StarterGui")
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title,
-            Text = text,
-            Duration = time or 1
-        })
-    end)
-end
 
 
 -- Tab chính
@@ -680,7 +665,7 @@ local function Notify(title, text, duration)
 end
 
 -- ⚙️ Vị trí máy EXP (bạn có thể chỉnh nếu khác)
-local machinePos = Vector3.new(-154, 11.8, 1027.4)
+local machinePos = Vector3.new(-89.5, 13.6, 960.4)
 
 BgTab:Toggle({
     Title = "Auto EXP Machine",
