@@ -1,0 +1,398 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "khanhly X OP,PVP bloxfruit",
+    Icon = "rbxassetid://111450164466537",
+    Author = "by Khanhly",
+    Folder = "khanhly pranium",
+    Size = UDim2.fromOffset(580, 340),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 150,
+    Background = "rbxassetid://96368639036805",
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = false,
+    ScrollBarEnabled = false,
+    User = { Enabled = true, Anonymous = false },
+})
+
+Window:EditOpenButton({
+    Title = "khanhly Hub",
+    Icon = "rbxassetid://111450164466537",
+    CornerRadius = UDim.new(0,16),
+    StrokeThickness = 2,
+    Color = ColorSequence.new(
+        Color3.fromHex("FF0F7B"),
+        Color3.fromHex("F89B29")
+    ),
+    Draggable = true,
+})
+
+local Tabs = {
+   Ds = Window:Tab({ Title = "Discord", Icon = "ghost" }),
+ Main = Window:Tab({ Title = "Main", Icon = "gem" }),
+ fus = Window:Tab({ Title = "function", Icon = "cog" }),
+  seg = Window:Tab({ Title = "settings", Icon = "cog" }),
+}
+
+Tabs.Ds:Button({
+    Title = "Copy Link Discord Khanhly",
+    Desc = "Sao chép link Discord vào clipboard",
+    Callback = function()
+        setclipboard("https://discord.com/invite/shkGwKQMaM")
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "✅ Đã sao chép!",
+            Text = "Link Discord Khanhly đã được copy vào clipboard.",
+            Duration = 5
+        })
+    end,
+})
+
+Tabs.Ds:Button({
+    Title = "Copy Link tiktok Khanhly",
+    Desc = "Sao chép link tiktok vào clipboard",
+    Callback = function()
+        setclipboard("https://www.tiktok.com/@script.khanhly?_r=1&_t=ZS-91sOTk6TLaE")
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "✅ Đã sao chép!",
+            Text = "Link tiktok Khanhly đã được copy vào clipboard.",
+            Duration = 5
+        })
+    end,
+})
+
+local Aimbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Aimbot-bloxkid/refs/heads/main/Fileaimbotplay"))()
+
+Tabs.Main:Toggle({
+    Title = "AIMbot Player",
+    Desc = "Bật/tắt aim",
+    Default = false,
+    Callback = function(state)
+        if Aimbot and Aimbot.SetPlayerSilentAim then
+            Aimbot:SetPlayerSilentAim(state)
+        else
+            warn("Aimbot module chưa load hoặc thiếu hàm SetPlayerSilentAim")
+        end
+    end
+})
+
+local FlashAttack = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Flash-max/refs/heads/main/Flash%20max%20Winduiv2"))()
+
+Tabs.Main:Toggle({
+    Title = "Flash Attack",
+    Desc = "Attack",
+    Default = false,
+    Callback = function(state)
+        if FlashAttack and FlashAttack.SetState then
+            FlashAttack:SetState(state)
+        else
+            warn("FlashAttack module chưa load hoặc thiếu hàm SetState")
+        end
+    end
+})
+
+local RaceV4 = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Race%20V4"))()
+
+Tabs.Main:Toggle({
+    Title = "Auto Race V4",
+    Desc = "sut",
+    Default = false,
+    Callback = function(state)
+        RaceV4:SetState(state)
+    end
+})
+
+local AntiStun = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Anti%20stun"))()
+
+Tabs.Main:Toggle({
+    Title = "Anti Stun",
+    Desc = "Kháng hiệu ứng stun/knockback",
+    Default = false,
+    Callback = function(state)
+        if AntiStun and AntiStun.SetState then
+            AntiStun:SetState(state)
+        end
+    end
+})
+
+local WalkOnWater = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Walking%20on%20water"))()
+
+Tabs.Main:Toggle({
+    Title = "Walk Water",
+    Desc = "Đi trên mặt nước",
+    Default = false,
+    Callback = function(state)
+        if WalkOnWater and WalkOnWater.SetState then
+            WalkOnWater:SetState(state)
+        end
+    end
+})
+
+local ESPPro = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Esp%20V2"))()
+
+Tabs.fus:Toggle({
+    Title = "ESP Player",
+    Desc = "esp avatar",
+    Default = false,
+    Callback = function(state)
+        ESPPro:SetState(state)
+    end
+})
+
+local NoClip = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Noclip"))()
+
+Tabs.fus:Toggle({
+    Title = "NoClip",
+    Desc = "Xuyên",
+    Default = false,
+    Callback = function(state)
+        NoClip:SetState(state)
+    end
+})
+
+local Speed = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Speed"))()
+
+Tabs.fus:Toggle({
+    Title = "Speed",
+    Desc = "ON / OFF",
+    Default = false,
+    Callback = function(state)
+        Speed:SetState(state)
+    end
+})
+
+Tabs.fus:Slider({
+    Title = "speed walk",
+    Desc = "Điều chỉnh tốc độ di chuyển",
+    Step = 1,
+    Value = {
+        Min = 16,
+        Max = 3000,
+        Default = 16,
+    },
+    Callback = function(value)
+        Speed:SetSpeed(value)
+    end
+})
+
+local JumpHack = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Jump%20V2"))()
+
+Tabs.fus:Toggle({
+    Title = "Jump",
+    Desc = "ON / OFF",
+    Default = false,
+    Callback = function(state)
+        JumpHack:SetState(state)
+    end
+})
+
+Tabs.fus:Slider({
+    Title = "Jump Power",
+    Desc = "Điều chỉnh sức nhảy",
+    Step = 10,
+    Value = {
+        Min = 50,
+        Max = 3000,
+        Default = 1000,
+    },
+    Callback = function(value)
+        JumpHack:SetJumpPower(value)
+    end
+})
+
+local FPSBoost = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Blox-kid/refs/heads/main/Fps%20boost"))()
+
+Tabs.seg:Toggle({
+    Title = "FPS Boost",
+    Desc = "Tối ưu hóa FPS",
+    Default = false,
+    Callback = function(state)
+        FPSBoost:SetState(state)
+    end
+})
+
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+
+local player = Players.LocalPlayer
+local antiAfkConnection
+local notifyLoop 
+
+Tabs.seg:Toggle({
+    Title = "Anti AFK",
+    Desc = "Tự động tránh kick AFK",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            
+            antiAfkConnection = player.Idled:Connect(function()
+                VirtualUser:Button2Down(Vector2.new(0, 0))
+                task.wait(0.5)
+                VirtualUser:Button2Up(Vector2.new(0, 0))
+            end)
+
+            WindUI:Notify({
+                Title = "Anti AFK",
+                Content = "Đã bật",
+                Duration = 4,
+                Type = "success"
+            })
+
+            notifyLoop = task.spawn(function()
+                while task.wait(1200) do
+                    WindUI:Notify({
+                        Title = "Anti AFK",
+                        Content = "Vẫn đang hoạt động!",
+                        Duration = 4,
+                        Type = "info"
+                    })
+                end
+            end)
+        else
+        
+            if antiAfkConnection then
+                antiAfkConnection:Disconnect()
+                antiAfkConnection = nil
+            end
+            
+            if notifyLoop then
+                task.cancel(notifyLoop)
+                notifyLoop = nil
+            end
+            
+            WindUI:Notify({
+                Title = "Anti AFK",
+                Content = "Đã tắt!",
+                Duration = 4,
+                Type = "error"
+            })
+        end
+    end,
+})
+
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local function serverHop()
+    local gameId = game.PlaceId
+    local currentJobId = game.JobId
+    local servers = {}
+
+    local success, result = pcall(function()
+        return game:HttpGet("https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100")
+    end)
+
+    if not success then
+        WindUI:Notify({
+            Title = "Server Hop",
+            Content = "⚠️ Không lấy được danh sách server.",
+            Duration = 4,
+            Type = "error"
+        })
+        return
+    end
+
+    local data = HttpService:JSONDecode(result)
+    for _, server in pairs(data.data) do
+        if server.id ~= currentJobId and server.playing < server.maxPlayers then
+            table.insert(servers, server.id)
+        end
+    end
+
+    -- 🔀 Chuyển server
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
+
+        WindUI:Notify({
+            Title = "Server Hop",
+            Content = "🔁 Đang chuyển sang server mới...",
+            Duration = 3,
+            Type = "info"
+        })
+
+        task.wait(1)
+        TeleportService:TeleportToPlaceInstance(gameId, randomServer, Players.LocalPlayer)
+    else
+        WindUI:Notify({
+            Title = "Server Hop",
+            Content = "❌ Không tìm thấy server phù hợp.",
+            Duration = 4,
+            Type = "warning"
+        })
+    end
+end
+
+Tabs.seg:Button({
+    Title = "Server Hop",
+    Desc = "Chuyển sang server ngẫu nhiên khác",
+    Callback = function()
+        serverHop()
+    end,
+})
+
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local function randomServer()
+    local gameId = game.PlaceId
+    local currentJobId = game.JobId
+    local allServers = {}
+
+    -- Lấy danh sách server
+    local success, result = pcall(function()
+        return game:HttpGet("https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100")
+    end)
+
+    if not success then
+        WindUI:Notify({
+            Title = "Random Server",
+            Content = "⚠️ Không lấy được danh sách server.",
+            Duration = 4,
+            Type = "error"
+        })
+        return
+    end
+
+    local data = HttpService:JSONDecode(result)
+
+    -- Thay vì lọc server như hop server, ta đơn giản chỉ random **toàn bộ server**
+    for _, server in pairs(data.data) do
+        if server.playing < server.maxPlayers and server.id ~= currentJobId then
+            table.insert(allServers, server.id)
+        end
+    end
+
+    -- Random server bất kỳ
+    if #allServers > 0 then
+        local pick = allServers[math.random(1, #allServers)]
+
+        WindUI:Notify({
+            Title = "Random Server",
+            Content = "🎲 Đang chuyển sang server ngẫu nhiên...",
+            Duration = 3,
+            Type = "info"
+        })
+
+        task.wait(1)
+        TeleportService:TeleportToPlaceInstance(gameId, pick, Players.LocalPlayer)
+
+    else
+        WindUI:Notify({
+            Title = "Random Server",
+            Content = "❌ Không tìm thấy server phù hợp.",
+            Duration = 4,
+            Type = "warning"
+        })
+    end
+end
+
+Tabs.seg:Button({
+    Title = "Random Server",
+    Desc = "Vào server ngẫu nhiên bất kỳ",
+    Callback = function()
+        randomServer()
+    end,
+})
