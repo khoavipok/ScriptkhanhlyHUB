@@ -1,35 +1,23 @@
--- ⭐ Full TP Star Orbit Script (with AutoSafe + HP/Fall Detection + ESP + Cycle Camera)
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
-
--- UI Library
 local UILibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/khoavipok/Khanhlymenu/refs/heads/main/Menu%20simple"))()
 local Window = UILibrary:CreateWindow("🔹khanhly Pranium🔹", UDim2.new(0, 250, 0, 380))
-
--- Labels
 local Info = Window:CreateLabel("Selected: None")
 local StateLabel = Window:CreateLabel("State: Idle")
-
--- Variables
 local SelectedPlayer = nil
 local TpLoop = false
 local SavedPosition = nil
 local AutoSafe = false
-
--- Config
 local LowHPThreshold = 0.3
 local HighHPThreshold = 0.7
 local FallYThreshold = -487.1
 local AbsoluteFailSafeY = -1000
-
--- ⭐ Star Orbit config
 local StarPoints = 5
 local StarRadius = 10
 local StarSpeed = 40
-
--- Player list UI
 local PlayerList = Instance.new("ScrollingFrame", Window:GetContainer())
 PlayerList.Size = UDim2.new(1, -10, 0, 150)
 PlayerList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -37,25 +25,17 @@ PlayerList.BackgroundTransparency = 0.2
 PlayerList.ScrollBarThickness = 5
 local ListLayout = Instance.new("UIListLayout", PlayerList)
 local PlayerButtons = {}
-
--- ⭐ ESP Highlight
 local HighlightFolder = Instance.new("Folder", game.CoreGui)
 HighlightFolder.Name = "TP_Highlights"
-
 local CurrentHighlight = nil
-
--- ⭐ Cycle Camera Mode
 local CycleCamera = false
 local LastSwitch = tick()
 local CurrentMode = "LookAt"
-
 Window:CreateToggle("Cycle Camera", function(state)
     CycleCamera = state
     LastSwitch = tick()
     CurrentMode = "LookAt"
 end)
-
--- Highlight player
 local function applyHighlight(plr)
     if CurrentHighlight then
         CurrentHighlight:Destroy()
@@ -71,15 +51,11 @@ local function applyHighlight(plr)
         CurrentHighlight = highlight
     end
 end
-
--- Select player
 local function selectPlayer(plr)
     SelectedPlayer = plr
     Info.Text = "Selected: " .. (plr and plr.Name or "None")
     applyHighlight(plr)
 end
-
--- Player list
 local function addPlayer(plr)
     if plr == LocalPlayer or PlayerButtons[plr] then return end
     local Btn = Instance.new("TextButton")
@@ -93,7 +69,6 @@ local function addPlayer(plr)
     end)
     PlayerButtons[plr] = Btn
 end
-
 local function removePlayer(plr)
     if PlayerButtons[plr] then
         PlayerButtons[plr]:Destroy()
@@ -108,19 +83,15 @@ local function removePlayer(plr)
         end
     end
 end
-
 local function refreshPlayers()
     for _, btn in pairs(PlayerButtons) do btn:Destroy() end
     PlayerButtons = {}
     for _, plr in pairs(Players:GetPlayers()) do addPlayer(plr) end
 end
-
 refreshPlayers()
 Players.PlayerAdded:Connect(addPlayer)
 Players.PlayerRemoving:Connect(removePlayer)
 Window:CreateButton("Reset Player List", refreshPlayers)
-
--- ⭐ Toggle TP Orbit
 Window:CreateToggle("TP Star Orbit", function(state)
     TpLoop = state
     AutoSafe = false
@@ -138,8 +109,6 @@ Window:CreateToggle("TP Star Orbit", function(state)
         end
     end
 end)
-
--- TP Now button
 Window:CreateButton("TP Now", function()
     if SelectedPlayer and SelectedPlayer.Character then
         local targetRoot = SelectedPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -148,8 +117,6 @@ Window:CreateButton("TP Now", function()
         end
     end
 end)
-
--- ⭐ Star orbit calc
 local function getStarPoint(t, targetPos)
     local step = (math.floor(t * StarSpeed) % StarPoints) * 2 % StarPoints
     local pointAngle = step * (2 * math.pi / StarPoints)
@@ -157,15 +124,11 @@ local function getStarPoint(t, targetPos)
     local z = math.sin(pointAngle) * StarRadius
     return targetPos + Vector3.new(x, 0, z)
 end
-
--- ⭐ Main loop
 RunService.RenderStepped:Connect(function()
     if not LocalPlayer.Character then return end
     local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     local targetRoot = SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-    -- Update state
     if TpLoop then
         StateLabel.Text = "State: Orbiting (Star)"
     elseif AutoSafe then
@@ -173,8 +136,6 @@ RunService.RenderStepped:Connect(function()
     else
         StateLabel.Text = "State: Idle"
     end
-
-    -- HP auto safe
     if humanoid then
         local hpPercent = humanoid.Health / humanoid.MaxHealth
         if TpLoop and hpPercent < LowHPThreshold then
@@ -192,8 +153,6 @@ RunService.RenderStepped:Connect(function()
             if myRoot then SavedPosition = myRoot.CFrame end
         end
     end
-
-    -- Fall detection
     if myRoot and SavedPosition then
         if TpLoop and (myRoot.Position.Y <= FallYThreshold or myRoot.Position.Y <= AbsoluteFailSafeY) then
             pcall(function() LocalPlayer.Character:PivotTo(SavedPosition) end)
@@ -203,15 +162,11 @@ RunService.RenderStepped:Connect(function()
             return
         end
     end
-
-    -- ⭐ TP Star Orbit
     if TpLoop and targetRoot and myRoot then
         local t = tick()
         local newPos = getStarPoint(t, targetRoot.Position)
         myRoot.CFrame = CFrame.new(newPos, targetRoot.Position)
     end
-
-    -- ⭐ Cycle Camera xử lý
     if CycleCamera and targetRoot then
         if tick() - LastSwitch >= 3 then
             LastSwitch = tick()
@@ -223,32 +178,24 @@ RunService.RenderStepped:Connect(function()
         end
 
         if CurrentMode == "LookAt" then
-            -- Camera giữ nguyên vị trí nhưng luôn xoay nhìn player
             local camPos = Camera.CFrame.Position
             Camera.CFrame = CFrame.lookAt(camPos, targetRoot.Position)
         elseif CurrentMode == "Spectate" then
-            -- Camera ra sau lưng player và nhìn thẳng vào player
             local backOffset = targetRoot.CFrame.LookVector * -10
             local camPos = targetRoot.Position + Vector3.new(0, 5, 0) + backOffset
             Camera.CFrame = CFrame.lookAt(camPos, targetRoot.Position)
         end
     end
 end)
-
-
--- 💀 Death Counter Detector (v2 - có chờ load map)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TOOL_NAME = "Death Counter"
-
--- 🕐 Hiện thông báo chờ load trên màn hình
 local function showLoadingScreen(seconds)
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "DeathCounterLoading"
 	screenGui.ResetOnSpawn = false
 	screenGui.IgnoreGuiInset = true
 	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 0.3
@@ -259,35 +206,26 @@ local function showLoadingScreen(seconds)
 	label.Font = Enum.Font.GothamBold
 	label.Text = "🔍 checking player... (" .. seconds .. "s)"
 	label.Parent = screenGui
-
-	-- Đếm ngược
 	for i = seconds - 1, 0, -1 do
 		task.wait(1)
 		label.Text = "🔍 checking player... (" .. i .. "s)"
 	end
-
-	-- Xóa thông báo
 	screenGui:Destroy()
 end
-
--- 🧠 Hiện thông báo trên đầu người chơi
 local function showESP(player, text, color)
 	local char = player.Character
 	if not char then return end
 	local head = char:FindFirstChild("Head")
 	if not head then return end
-
 	if head:FindFirstChild("DeathESP") then
 		head.DeathESP:Destroy()
 	end
-
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "DeathESP"
 	billboard.Adornee = head
 	billboard.Size = UDim2.new(0, 200, 0, 50)
 	billboard.StudsOffset = Vector3.new(0, 3, 0)
-	billboard.AlwaysOnTop = true
-
+	billboard.AlwaysOnTop = triệu 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
@@ -306,8 +244,6 @@ local function showESP(player, text, color)
 		end
 	end)
 end
-
--- 🔎 Theo dõi trạng thái Death Counter
 local function trackPlayer(player)
 	task.spawn(function()
 		local lastState = nil
@@ -315,7 +251,6 @@ local function trackPlayer(player)
 			local hasTool = false
 			local backpack = player:FindFirstChild("Backpack")
 			local character = player.Character
-
 			if backpack and backpack:FindFirstChild(TOOL_NAME) then
 				hasTool = true
 			elseif character and character:FindFirstChild(TOOL_NAME) then
@@ -335,27 +270,20 @@ local function trackPlayer(player)
 		end
 	end)
 end
-
--- 🧩 Chờ load map trước khi bắt đầu quét
 task.spawn(function()
-	showLoadingScreen(10) -- đếm ngược 7 giây
+	showLoadingScreen(10) 
 end)
-
--- 🧍 Theo dõi toàn bộ người chơi
-task.wait(5) -- chờ load trước khi bắt đầu
+task.wait(5) 
 for _, plr in pairs(Players:GetPlayers()) do
 	if plr ~= LocalPlayer then
 		trackPlayer(plr)
 	end
 end
-
 Players.PlayerAdded:Connect(function(plr)
 	if plr ~= LocalPlayer then
 		trackPlayer(plr)
 	end
 end)
-
-
 -- ⚡ Auto Fix Lag Hardcore (No Toggle, Player giữ nguyên)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
